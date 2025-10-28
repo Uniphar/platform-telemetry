@@ -32,17 +32,27 @@ Add a reference to the package in your project. Example usage:
 ```csharp
 using Uniphar.Platform.Telemetry;
 
+// Register OpenTelemetry in your application's startup/configuration
+builder.RegisterOpenTelemetry("my-application");
 
-// Send custom events, you can also inject ICustomEventTelemetryClient
-var telemetryClient = new CustomEventTelemetryClient();
-telemetryClient.TrackEvent("MyEvent", new { Property1 = "Value" });
+// Example usage in a class
+public class MyClass
+{
+    private readonly ICustomEventTelemetryClient _telemetry;
+    private readonly JobMetrics _metrics;
 
+    public MyClass(ICustomEventTelemetryClient telemetry, JobMetrics metrics)
+    {
+        _telemetry = telemetry;
+        _metrics = metrics;
+    }
 
-// Collect job metrics
-var jobMetrics = new JobMetrics("JobName");
-jobMetrics.Start();
-// ... job logic ...
-jobMetrics.Stop();
+    public void DoSomething()
+    {
+        _telemetry.TrackEvent("DoingSomething", new { Property1 = "Value" });
+        _metrics.TrackExecutionCount(Guid.NewGuid(), "Example");
+    }
+}
 ```
 
 ## Building
