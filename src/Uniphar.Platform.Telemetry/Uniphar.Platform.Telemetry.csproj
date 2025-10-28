@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
     <Authors>Uniphar</Authors>
     <Title>Uniphar.Platform.Telemetry</Title>
     <Description>.NET library for enhanced telemetry, logging, and metrics collection for Uniphar applications.</Description>
