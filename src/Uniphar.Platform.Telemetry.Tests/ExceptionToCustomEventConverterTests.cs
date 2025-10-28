@@ -35,7 +35,7 @@ public class ExceptionToCustomEventConverterTests
 
         // Assert
         mockTelemetryClient.Verify(x => x.TrackEvent("IoLock",
-                It.Is<Dictionary<string, object>>(logRecord => logRecord.Values.ToString()!.Contains(exception.Message))),
+                It.Is<Dictionary<string, object>>(logRecord => logRecord["Exception"].ToString()!.Contains(exception.Message))),
             Times.Once);
 
         Assert.IsFalse(logRecordExporter.ExportedLogs.Any(log => log.LogLevel >= LogLevel.Error));
