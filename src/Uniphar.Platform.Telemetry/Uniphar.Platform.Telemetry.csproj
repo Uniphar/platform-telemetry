@@ -2,8 +2,19 @@
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Uniphar.Platform.Telemetry</RootNamespace>
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+    <Version>0.1.0</Version>
+    <Authors>Uniphar</Authors>
+    <Title>Uniphar.Platform.Telemetry</Title>
+    <Description>.NET library for enhanced telemetry, logging, and metrics collection for Uniphar applications.</Description>
+    <PackageProjectUrl>https://github.com/Uniphar/platform-telemetry</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/Uniphar/platform-telemetry</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>telemetry;logging;metrics;uniphar;dotnet;opentelemetry</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <!-- START OpenTelemetry-->
