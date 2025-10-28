@@ -19,11 +19,10 @@ jobs:
     steps:
       - name: checkout repo
         uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9"
-
+          dotnet-version: 9.x
       - name: check for NuGet vulnerabilites
         working-directory: ./src/Uniphar.Platform.Telemetry
         shell: pwsh
@@ -32,7 +31,25 @@ jobs:
           dotnet list package --vulnerable --include-transitive 2>&1 | tee build.log
           echo "Analyze dotnet list package command log output..."
           exit (Select-String -Path "build.log" -Pattern "has the following vulnerable packages" -AllMatches).Matches.Count -gt 0 ? 1 : 0
-
       - name: dotnet pack test
         working-directory: ./src/Uniphar.Platform.Telemetry
         run: dotnet pack --configuration Release
+      - name: Run unit tests
+        working-directory: ./src/Uniphar.Platform.Telemetry.Tests
+        run: |
+          dotnet test -v:q --nologo --filter TestCategory=Unit /p:CollectCoverage=true --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
+      - name: Generate coverage report
+        uses: danielpalme/ReportGenerator-GitHub-Action@v5
+        with:
+          reports: "./tests/*/coverage.cobertura.xml"
+          targetdir: "coverage-results-uniphar-platform-telemetry"
+          title: "Unit Tests Coverage ONLY, does not include integration tests"
+          reporttypes: "HtmlInline;MarkdownSummaryGithub"
+      - name: Upload test results in case manual view
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-results-uniphar-platform-telemetry
+          path: coverage-results-uniphar-platform-telemetry
+      - name: Publish coverage in build summary
+        run: cat coverage-results-uniphar-platform-telemetry/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+        shell: bash
