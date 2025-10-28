@@ -35,7 +35,7 @@ public class ExceptionToCustomEventConverterTests
 
         // Assert
         mockTelemetryClient.Verify(x => x.TrackEvent("IoLock",
-                It.Is<object>(logRecord => logRecord.ToString()!.Contains(exception.Message))),
+                It.Is<Dictionary<string, object>>(logRecord => logRecord.ToString()!.Contains(exception.Message))),
             Times.Once);
 
         Assert.IsFalse(logRecordExporter.ExportedLogs.Any(log => log.LogLevel >= LogLevel.Error));
@@ -65,7 +65,7 @@ public class ExceptionToCustomEventConverterTests
         logger.LogError(exception, "Error while moving file");
 
         // Assert
-        mockTelemetryClient.Verify(x => x.TrackEvent(It.IsAny<string>(), It.IsAny<object>()), Times.Never);
+        mockTelemetryClient.Verify(x => x.TrackEvent(It.IsAny<string>(), It.IsAny<Dictionary<string, object>>()), Times.Never);
         Assert.IsTrue(logRecordExporter.ExportedLogs.Any(log => log.Exception == exception));
     }
 }

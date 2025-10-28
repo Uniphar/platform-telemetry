@@ -19,14 +19,10 @@ public static class TelemetryExtensions
 {
     public static AmbientTelemetryProperties WithProperties(this ICustomEventTelemetryClient telemetry, IEnumerable<KeyValuePair<string, string>> properties) => AmbientTelemetryProperties.Initialize(properties);
 
-    public static AmbientTelemetryProperties WithProperties(this ICustomEventTelemetryClient telemetry, object properties) => AmbientTelemetryProperties.Initialize(properties.GrabProperties());
-
-    public static void RegisterOpenTelemetry(this IHostApplicationBuilder builder, string appPathPrefix)
+    public static void RegisterOpenTelemetry(this IHostApplicationBuilder builder, string appName)
     {
         builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
-        builder.Services.AddSingleton<JobMetrics>();
-
-        var cloudRoleName = $"{appPathPrefix}";
+        var cloudRoleName = $"{appName}";
         var resourceBuilder = ResourceBuilder
             .CreateDefault()
             .AddTelemetrySdk()
@@ -59,7 +55,7 @@ public static class TelemetryExtensions
             .WithTracing(x =>
             {
                 x
-                    .AddSource(appPathPrefix)
+                    .AddSource(appName)
                     .SetResourceBuilder(resourceBuilder)
                     .AddAspNetCoreInstrumentation(options =>
                     {
@@ -92,7 +88,7 @@ public static class TelemetryExtensions
                     .SetResourceBuilder(resourceBuilder)
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
-                    .AddMeter($"{appPathPrefix}.*");
+                    .AddMeter($"{appName}.*");
 
 #if LOCAL || DEBUG
                 metricsBuilder.AddConsoleExporter();
@@ -110,19 +106,6 @@ public static class TelemetryExtensions
                 foreach (var (name, value) in activityTags) activity.SetTag(name, value);
             }
         });
-    }
-
-    public static Dictionary<string, object> ToDictionary(this object? obj)
-    {
-        if (obj == null) return [];
-
-        return obj
-            .GetType()
-            .GetProperties()
-            .ToDictionary(
-                prop => prop.Name,
-                prop => prop.GetValue(obj) ?? string.Empty
-            );
     }
 }
 
@@ -157,71 +140,5 @@ public sealed class AmbientTelemetryProperties : IDisposable
         // Insert at the beginning of the list so that these props take precedence over existing ambient props
         AmbientProperties = AmbientProperties.Insert(0, ambientProps);
         return ambientProps;
-    }
-}
-
-file static class AnonymousObjectSerializer
-{
-    private static ConcurrentDictionary<Type, Func<object, Dictionary<string, string>>> PropertyGrabbers { get; } = new();
-
-    private static MethodInfo AddConditionalMethod { get; } = ReflectionExtensions.GetMethod(AddConditional);
-
-    public static Dictionary<string, string>? GrabProperties(this object obj) =>
-        obj switch
-        {
-            null => null,
-            IEnumerable<KeyValuePair<string, string>> dict => dict.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
-            _ => GetPropertyGrabber(obj.GetType())(obj)
-        };
-
-    private static Func<object, Dictionary<string, string>> GetPropertyGrabber(Type type)
-    {
-        return PropertyGrabbers.GetOrAdd(type,
-            static type =>
-            {
-                var objParam = Expression.Parameter(typeof(object), "obj");
-
-                // var typedObj = (T)obj;
-                var typedObj = Expression.Variable(type, "typedObj");
-                var typedObjAssign = Expression.Assign(typedObj, Expression.Convert(objParam, type));
-
-                // Dictionary<string, string> dictionary = new();
-                var dictionary = Expression.Variable(typeof(Dictionary<string, string>), "dictionary");
-                var instantiateDictionary = Expression.Assign(dictionary, Expression.New(typeof(Dictionary<string, string>)));
-
-                var propertyDictionaryAddExpressions = type
-                    .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .Select(prop =>
-                    {
-                        // dictionary.AddCondition("Property", typedObj.Property);
-                        var getProperty = Expression.Property(typedObj, prop);
-                        return Expression.Call(AddConditionalMethod, dictionary, Expression.Constant(prop.Name), Expression.Convert(getProperty, typeof(object)));
-                    });
-
-                var block = Expression.Block([typedObj, dictionary],
-                [
-                    typedObjAssign,
-                    instantiateDictionary,
-                    ..propertyDictionaryAddExpressions,
-                    dictionary
-                ]);
-
-                return Expression.Lambda<Func<object, Dictionary<string, string>>>(block, objParam).Compile();
-            });
-    }
-
-    private static void AddConditional(this Dictionary<string, string> dict, string key, object value)
-    {
-        var str = value switch
-        {
-            string s => s,
-            int i => i.ToString("D", CultureInfo.InvariantCulture),
-            TimeSpan ts => ts.ToString("c"),
-            DateTime dt => dt.ToUniversalTime().ToString("O"),
-            DateTimeOffset dto => dto.ToUniversalTime().ToString("O"),
-            _ => value.ToString()
-        };
-
-        if (!string.IsNullOrWhiteSpace(str)) dict.Add(key, str);
     }
 }

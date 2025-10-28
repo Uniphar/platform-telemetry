@@ -18,7 +18,7 @@ public class ExceptionToCustomEventConverter(ICustomEventTelemetryClient eventTe
         // Filter out file locked exception and send them as custom event, not an exception telemetry
         if (exception is IOException && exception.Message.Contains("being used by another process"))
         {
-            eventTelemetryClient.TrackEvent("IoLock", new { Exception = exception.Message });
+            eventTelemetryClient.TrackEvent("IoLock", new() { ["Exception"] = exception.Message });
 
             // Suppress the original log
             logRecord.Attributes = [];
