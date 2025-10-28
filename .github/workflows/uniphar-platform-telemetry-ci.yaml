@@ -1,0 +1,38 @@
+name: CI for Uniphar.Platform.Telemetry project
+
+on:
+  workflow_dispatch:
+
+  pull_request:
+    paths:
+      - .github/workflows/uniphar-platform-telemetry-ci.yaml
+      - src/Uniphar.Platform.Telemetry/**
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: read
+
+jobs:
+  Package_CI:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9"
+
+      - name: check for NuGet vulnerabilites
+        working-directory: ./src/Uniphar.Platform.Telemetry
+        shell: pwsh
+        run: |
+          dotnet restore
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee build.log
+          echo "Analyze dotnet list package command log output..."
+          exit (Select-String -Path "build.log" -Pattern "has the following vulnerable packages" -AllMatches).Matches.Count -gt 0 ? 1 : 0
+
+      - name: dotnet pack test
+        working-directory: ./src/Uniphar.Platform.Telemetry
+        run: dotnet pack --configuration Release
