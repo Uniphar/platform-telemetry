@@ -49,7 +49,7 @@ public class MyClass
 
     public void DoSomething()
     {
-        _telemetry.TrackEvent("DoingSomething", new { Property1 = "Value" });
+        _telemetry.TrackEvent("DoingSomething", new() { ["Property1"] = "Value" });
         _metrics.TrackExecutionCount(Guid.NewGuid().ToString(), "Example");
     }
 }
