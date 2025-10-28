@@ -16,7 +16,7 @@ public class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClient> logg
 
     public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
     {
-        var customProperties = (state ?? new Dictionary<string, object>());
+        var customProperties = state ?? new Dictionary<string, object>();
         using (logger.BeginScope(customProperties))
             //this is how OpenTelemetry tracks custom events in AppInsights
             //Note that it is logged as a critical event on purpose.

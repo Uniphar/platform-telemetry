@@ -1,9 +1,5 @@
-﻿using System.Collections.Concurrent;
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Globalization;
-using System.Linq.Expressions;
-using System.Reflection;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,9 +15,15 @@ public static class TelemetryExtensions
 {
     public static AmbientTelemetryProperties WithProperties(this ICustomEventTelemetryClient telemetry, IEnumerable<KeyValuePair<string, string>> properties) => AmbientTelemetryProperties.Initialize(properties);
 
-    public static void RegisterOpenTelemetry(this IHostApplicationBuilder builder, string appName)
+
+    public static void RegisterOpenTelemetry(this IHostApplicationBuilder builder, string appName, IEnumerable<ExceptionHandlingRule>? exceptionHandlingRules)
     {
         builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
+
+        // Register exception handling rules
+        builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => exceptionHandlingRules ?? []);
+
+
         var cloudRoleName = $"{appName}";
         var resourceBuilder = ResourceBuilder
             .CreateDefault()

@@ -17,7 +17,15 @@ public class ExceptionToCustomEventConverterTests
         var exception = new IOException("The process cannot access the file 'C:\\Temp\\test.txt' because it is being used by another process.");
 
         var mockTelemetryClient = new Mock<ICustomEventTelemetryClient>();
-        var processor = new ExceptionToCustomEventConverter(mockTelemetryClient.Object);
+        var processor = new ExceptionToCustomEventConverter(new List<ExceptionHandlingRule>
+            {
+                new(
+                    logRecord => logRecord.Exception is IOException &&
+                                 logRecord.Exception.Message.Contains("being used by another process"),
+                    (logRecord, client) => client.TrackEvent("IoLock", new Dictionary<string, object> { ["Exception"] = logRecord.Exception?.Message })
+                )
+            },
+            mockTelemetryClient.Object);
         var logRecordExporter = new InMemoryLogRecordExporter();
 
         var loggerFactory = LoggerFactory.Create(builder =>
@@ -48,7 +56,15 @@ public class ExceptionToCustomEventConverterTests
         var exception = new Exception("Some other error");
 
         var mockTelemetryClient = new Mock<ICustomEventTelemetryClient>();
-        var processor = new ExceptionToCustomEventConverter(mockTelemetryClient.Object);
+        var processor = new ExceptionToCustomEventConverter(new List<ExceptionHandlingRule>
+            {
+                new(
+                    logRecord => logRecord.Exception is IOException &&
+                                 logRecord.Exception.Message.Contains("being used by another process"),
+                    (logRecord, client) => client.TrackEvent("IoLock", new Dictionary<string, object> { ["Exception"] = logRecord.Exception?.Message })
+                )
+            },
+            mockTelemetryClient.Object);
         var logRecordExporter = new InMemoryLogRecordExporter();
 
         var loggerFactory = LoggerFactory.Create(builder =>
