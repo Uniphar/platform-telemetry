@@ -16,7 +16,7 @@ public static class TelemetryExtensions
     public static AmbientTelemetryProperties WithProperties(this ICustomEventTelemetryClient telemetry, IEnumerable<KeyValuePair<string, string>> properties) => AmbientTelemetryProperties.Initialize(properties);
 
 
-    public static void RegisterOpenTelemetry(this IHostApplicationBuilder builder, string appName, IEnumerable<ExceptionHandlingRule>? exceptionHandlingRules)
+    public static void RegisterOpenTelemetry(this IHostApplicationBuilder builder, string appName, IEnumerable<ExceptionHandlingRule>? exceptionHandlingRules = null)
     {
         builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
 
