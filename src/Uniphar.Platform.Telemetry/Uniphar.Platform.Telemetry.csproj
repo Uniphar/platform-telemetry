@@ -30,10 +30,6 @@
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="*" />
     <!--azure app insight-->
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="*" />
-    <!--AddContainerDetector-->
-    <packageReference Include="OpenTelemetry.Resources.Container" Version="*-*" />
-    <!-- AddHostDetector-->
-    <PackageReference Include="OpenTelemetry.Resources.Host" Version="*-*" />
     <!-- END OpenTelemetry-->
   </ItemGroup>
 </Project>

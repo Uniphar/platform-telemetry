@@ -22,7 +22,7 @@ public class ExceptionToCustomEventConverterTests
                 new(
                     logRecord => logRecord.Exception is IOException &&
                                  logRecord.Exception.Message.Contains("being used by another process"),
-                    (logRecord, client) => client.TrackEvent("IoLock", new Dictionary<string, object> { ["Exception"] = logRecord.Exception?.Message })
+                    (logRecord, client) => client.TrackEvent("IoLock", new() { ["Exception"] = logRecord.Exception?.Message ?? string.Empty })
                 )
             },
             mockTelemetryClient.Object);
@@ -61,7 +61,7 @@ public class ExceptionToCustomEventConverterTests
                 new(
                     logRecord => logRecord.Exception is IOException &&
                                  logRecord.Exception.Message.Contains("being used by another process"),
-                    (logRecord, client) => client.TrackEvent("IoLock", new Dictionary<string, object> { ["Exception"] = logRecord.Exception?.Message })
+                    (logRecord, client) => client.TrackEvent("IoLock", new() { ["Exception"] = logRecord.Exception?.Message ?? string.Empty })
                 )
             },
             mockTelemetryClient.Object);
