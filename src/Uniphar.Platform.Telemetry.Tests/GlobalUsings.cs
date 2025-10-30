@@ -1,7 +1,8 @@
-// Global using directives
-
-global using System.Diagnostics;
-global using System.Diagnostics.CodeAnalysis;
-global using System.Net;
-global using System.Runtime.CompilerServices;
+global using Microsoft.Extensions.Logging;
 global using Microsoft.VisualStudio.TestTools.UnitTesting;
+global using Moq;
+global using OpenTelemetry;
+global using OpenTelemetry.Logs;
+global using LogLevel = Microsoft.Extensions.Logging.LogLevel;
+
+[assembly: Parallelize(Scope = ExecutionScope.MethodLevel)]

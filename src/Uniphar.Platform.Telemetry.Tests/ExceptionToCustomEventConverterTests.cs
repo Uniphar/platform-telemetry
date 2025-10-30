@@ -1,10 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using Moq;
-using OpenTelemetry;
-using OpenTelemetry.Logs;
-using LogLevel = Microsoft.Extensions.Logging.LogLevel;
-
-namespace Uniphar.Platform.Telemetry.Tests;
+﻿namespace Uniphar.Platform.Telemetry.Tests;
 
 [TestClass]
 [TestCategory("Unit")]
