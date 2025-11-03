@@ -1,13 +1,12 @@
 # Uniphar.Platform.Telemetry
 
-Uniphar.Platform.Telemetry is a .NET library for enhanced telemetry, logging, and metrics collection. It is designed to be used as a NuGet package in .NET applications to provide structured logging, custom event telemetry, and job metrics.
+Uniphar.Platform.Telemetry is a .NET library for enhanced telemetry, logging, and metrics collection. It is designed to be used as a NuGet package in .NET applications to provide structured logging and custom event telemetry.
 
 ## Features
 
 - **Ambient Properties Log Enricher**: Automatically enriches log records with ambient properties for better traceability.
 - **Custom Event Telemetry Client**: Send custom events to your telemetry backend with structured data.
 - **Exception to Custom Event Converter**: Convert exceptions into custom telemetry events for improved error tracking.
-- **Job Metrics**: Collect and report metrics for background jobs and processes.
 - **Reflection Extensions**: Utilities for working with .NET reflection in telemetry scenarios.
 - **Telemetry Extensions**: Extension methods for easier integration with logging and telemetry frameworks.
 
@@ -39,9 +38,8 @@ builder.RegisterOpenTelemetry("my-application");
 public class MyClass
 {
     private readonly ICustomEventTelemetryClient _telemetry;
-    private readonly JobMetrics _metrics;
 
-    public MyClass(ICustomEventTelemetryClient telemetry, JobMetrics metrics)
+    public MyClass(ICustomEventTelemetryClient telemetry)
     {
         _telemetry = telemetry;
         _metrics = metrics;
@@ -50,7 +48,6 @@ public class MyClass
     public void DoSomething()
     {
         _telemetry.TrackEvent("DoingSomething", new() { ["Property1"] = "Value" });
-        _metrics.TrackExecutionCount(Guid.NewGuid().ToString(), "Example");
     }
 }
 ```
@@ -77,7 +74,6 @@ dotnet test
 
 - `Uniphar.Platform.Telemetry/` - Main library source code
 - `Uniphar.Platform.Telemetry.Tests/` - Unit tests
-- `runsettings/` - Test run settings
 
 ## Contributing
 
