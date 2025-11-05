@@ -1,7 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using OpenTelemetry;
-using OpenTelemetry.Logs;
-using Uniphar.Platform.Telemetry;
+﻿namespace Uniphar.Platform.Telemetry;
 
 /// <summary>
 ///     Service to preprocess Exception telemetry and override them to send as Custom Events for specific exceptions.
@@ -12,7 +9,7 @@ public sealed record ExceptionHandlingRule(
     Action<LogRecord, ICustomEventTelemetryClient> Handler
 );
 
-public class ExceptionToCustomEventConverter(
+internal sealed class ExceptionToCustomEventConverter(
     IEnumerable<ExceptionHandlingRule> rules,
     ICustomEventTelemetryClient eventTelemetryClient
 ) : BaseProcessor<LogRecord>
@@ -23,17 +20,15 @@ public class ExceptionToCustomEventConverter(
 
         foreach (var rule in rules)
         {
-            if (rule.Predicate(logRecord))
-            {
-                rule.Handler(logRecord, eventTelemetryClient);
-                logRecord.Attributes = [];
-                logRecord.Body = string.Empty;
-                logRecord.FormattedMessage = string.Empty;
-                logRecord.CategoryName = string.Empty;
-                logRecord.Exception = null;
-                logRecord.LogLevel = LogLevel.None;
-                return;
-            }
+            if (!rule.Predicate(logRecord)) continue;
+            rule.Handler(logRecord, eventTelemetryClient);
+            logRecord.Attributes = [];
+            logRecord.Body = string.Empty;
+            logRecord.FormattedMessage = string.Empty;
+            logRecord.CategoryName = string.Empty;
+            logRecord.Exception = null;
+            logRecord.LogLevel = LogLevel.None;
+            return;
         }
 
         base.OnEnd(logRecord);

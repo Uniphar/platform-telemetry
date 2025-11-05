@@ -1,21 +1,23 @@
-﻿using System.Collections.Immutable;
-using System.Diagnostics;
-using Azure.Monitor.OpenTelemetry.AspNetCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using OpenTelemetry.Logs;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
+﻿namespace Uniphar.Platform.Telemetry;
 
-namespace Uniphar.Platform.Telemetry;
-
+/// <summary>
+///     Extension methods for adding telemetry clients.
+/// </summary>
 public static class TelemetryExtensions
 {
+    /// <summary>
+    ///     Sets ambient properties to be included in all telemetry events tracked within the current async context.
+    /// </summary>
+    /// <param name="telemetry"></param>
+    /// <param name="properties"></param>
     public static AmbientTelemetryProperties WithProperties(this ICustomEventTelemetryClient telemetry, IEnumerable<KeyValuePair<string, string>> properties) => AmbientTelemetryProperties.Initialize(properties);
 
-
+    /// <summary>
+    ///     Registers OpenTelemetry services and configures telemetry for the application.
+    /// </summary>
+    /// <param name="builder"></param>
+    /// <param name="appName">name of the service, this will be the role-name in insights</param>
+    /// <param name="exceptionHandlingRules">optional exception handling rules</param>
     public static void RegisterOpenTelemetry(this IHostApplicationBuilder builder, string appName, IEnumerable<ExceptionHandlingRule>? exceptionHandlingRules = null)
     {
         builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
@@ -54,9 +56,9 @@ public static class TelemetryExtensions
                     ["host.name"] = podName
                 });
             })
-            .WithTracing(x =>
+            .WithTracing(tracerProviderBuilder =>
             {
-                x
+                tracerProviderBuilder
                     .AddSource(appName)
                     .SetResourceBuilder(resourceBuilder)
                     .AddAspNetCoreInstrumentation(options =>
@@ -74,14 +76,14 @@ public static class TelemetryExtensions
                     });
 
 #if LOCAL || DEBUG
-                x.AddConsoleExporter();
+                tracerProviderBuilder.AddConsoleExporter();
                 //no sampling in local environment
-                x.SetSampler(new AlwaysOnSampler());
+                tracerProviderBuilder.SetSampler(new AlwaysOnSampler());
 #endif
             })
-            .WithLogging(x => x
+            .WithLogging(loggerProviderBuilder => loggerProviderBuilder
                 .SetResourceBuilder(resourceBuilder)
-                .AddProcessor<AmbientPropertiesLogRecordEnricher>()
+                .AddProcessor<AmbientPropertiesLogRecordInjector>()
                 .AddProcessor<ExceptionToCustomEventConverter>()
             )
             .WithMetrics(metricsBuilder =>
@@ -98,7 +100,7 @@ public static class TelemetryExtensions
             });
 
         //enrich Dependency telemetry with ambient properties
-        ActivitySource.AddActivityListener(new ActivityListener
+        ActivitySource.AddActivityListener(new()
         {
             ShouldListenTo = _ => true,
             Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
@@ -111,6 +113,9 @@ public static class TelemetryExtensions
     }
 }
 
+/// <summary>
+///     Represents a set of ambient properties for telemetry, disposable so they can be scoped.
+/// </summary>
 public sealed class AmbientTelemetryProperties : IDisposable
 {
     private AmbientTelemetryProperties(IEnumerable<KeyValuePair<string, string>>? propertiesToInject)
@@ -126,17 +131,19 @@ public sealed class AmbientTelemetryProperties : IDisposable
     internal static ImmutableList<AmbientTelemetryProperties> AmbientProperties
     {
         get => AmbientPropertiesAsyncLocal.Value ?? ImmutableList<AmbientTelemetryProperties>.Empty;
-        set => AmbientPropertiesAsyncLocal.Value = value;
+        private set => AmbientPropertiesAsyncLocal.Value = value;
     }
 
     internal ImmutableArray<KeyValuePair<string, string>> PropertiesToInject { get; }
 
+
+    /// <inheritdoc />
     public void Dispose()
     {
         AmbientProperties = AmbientProperties.Remove(this);
     }
 
-    public static AmbientTelemetryProperties Initialize(IEnumerable<KeyValuePair<string, string>>? propertiesToInject)
+    internal static AmbientTelemetryProperties Initialize(IEnumerable<KeyValuePair<string, string>>? propertiesToInject)
     {
         var ambientProps = new AmbientTelemetryProperties(propertiesToInject);
         // Insert at the beginning of the list so that these props take precedence over existing ambient props

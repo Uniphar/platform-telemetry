@@ -1,12 +1,9 @@
-﻿using OpenTelemetry;
-using OpenTelemetry.Logs;
-
-namespace Uniphar.Platform.Telemetry;
+﻿namespace Uniphar.Platform.Telemetry;
 
 /// <summary>
 ///     Add ambient properties into CustomEvents and Trace/Exception entries
 /// </summary>
-public class AmbientPropertiesLogRecordEnricher : BaseProcessor<LogRecord>
+internal sealed class AmbientPropertiesLogRecordInjector : BaseProcessor<LogRecord>
 {
     public override void OnEnd(LogRecord logRecord)
     {

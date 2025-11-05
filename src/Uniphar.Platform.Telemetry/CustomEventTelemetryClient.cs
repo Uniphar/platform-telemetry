@@ -1,19 +1,26 @@
-﻿using Microsoft.Extensions.Logging;
-
-namespace Uniphar.Platform.Telemetry;
+﻿namespace Uniphar.Platform.Telemetry;
 
 /// <summary>
 ///     Service to track custom events in Application Insights via OpenTelemetry
 /// </summary>
 public interface ICustomEventTelemetryClient
 {
+    /// <summary>
+    ///     Track a custom event with optional state properties.
+    /// </summary>
+    /// <param name="eventName"></param>
+    /// <param name="state"></param>
     void TrackEvent(string eventName, Dictionary<string, object>? state = null);
 }
 
-public class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClient> logger) : ICustomEventTelemetryClient
+/// <summary>
+///     Service to track custom events in Application Insights via OpenTelemetry
+/// </summary>
+public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClient> logger) : ICustomEventTelemetryClient
 {
-    public const string CustomEventAttribute = "{microsoft.custom_event.name}";
+    private const string CustomEventAttribute = "{microsoft.custom_event.name}";
 
+    /// <inheritdoc />
     public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
     {
         var customProperties = state ?? new Dictionary<string, object>();

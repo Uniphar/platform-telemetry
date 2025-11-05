@@ -15,6 +15,7 @@
     <RepositoryUrl>https://github.com/Uniphar/platform-telemetry</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>telemetry;logging;metrics;uniphar;dotnet;opentelemetry</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <!-- START OpenTelemetry-->
