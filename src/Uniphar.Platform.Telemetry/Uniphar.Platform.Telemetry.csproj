@@ -8,7 +8,7 @@
     <PackageOutputPath>./nupkg</PackageOutputPath>
     <Version>1.0</Version>
     <Authors>Uniphar</Authors>
-    <PackageReadmeFile>../../README.md</PackageReadmeFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Title>Uniphar.Platform.Telemetry</Title>
     <Description>.NET library for enhanced telemetry, logging, and metrics collection for Uniphar applications.</Description>
     <PackageProjectUrl>https://github.com/Uniphar/platform-telemetry</PackageProjectUrl>
