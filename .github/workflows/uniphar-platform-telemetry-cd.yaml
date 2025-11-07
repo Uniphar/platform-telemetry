@@ -1,0 +1,79 @@
+name: CD for Uniphar.Platform.Telemetry project
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/uniphar-platform-telemetry-cd.yaml
+      - src/Uniphar.Platform.Telemetry/**
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: read
+
+jobs:
+  Package_CD:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./src/Uniphar.Platform.Telemetry
+
+    steps:
+      - name: azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_PLATFORM_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: checkout repo
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9"
+
+      - name: Update Version in .csproj
+        shell: pwsh
+        run: |
+          $csprojPath = "Uniphar.Platform.Telemetry.csproj"
+          $runNumber = "${{github.run_number}}.${{github.run_attempt}}"
+          $content = Get-Content $csprojPath -Raw
+
+          # Match and extract current version
+          if ($content -match '<Version>(.*?)<\/Version>') {
+              $currentVersion = $Matches[1]
+              $newVersion = "$currentVersion.$runNumber"
+              $content = $content -replace '<Version>(.*?)<\/Version>', "<Version>$newVersion</Version>"
+              Set-Content $csprojPath $content
+              Write-Output "Updated version to $newVersion in $csprojPath"
+          } else {
+              Write-Error "Could not find a <Version> tag in $csprojPath"
+          }
+
+      - name: Restore dependencies
+        run: dotnet restore --no-cache --force
+
+      - name: dotnet pack
+        run: dotnet pack --configuration Release --output ./.nupkgs
+
+      - name: get NuGet repository API key
+        uses: azure/powershell@v2
+        with:
+          inlineScript: |
+            $nuGetAPIKeySecret = Get-AzKeyVaultSecret -VaultName uni-core-platform-kv -Name nuget-org-repository-api-key
+            $nuGetAPIKey = ConvertFrom-SecureString $nuGetAPIKeySecret.SecretValue -AsPlainText
+
+            echo "NUGET_API_KEY=$nuGetAPIKey" >> $env:GITHUB_ENV
+          azPSVersion: "latest"
+          errorActionPreference: "stop"
+          failOnStandardError: true
+
+      - name: dotnet nuget push
+        working-directory: ./src/Uniphar.Platform.Telemetry
+        run: dotnet nuget push ./.nupkgs/*.nupkg --source 'https://api.nuget.org/v3/index.json' --api-key $NUGET_API_KEY
