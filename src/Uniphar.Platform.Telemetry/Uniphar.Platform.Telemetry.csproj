@@ -6,8 +6,9 @@
     <Nullable>enable</Nullable>
     <LangVersion>preview</LangVersion>
     <PackageOutputPath>./nupkg</PackageOutputPath>
-    <Version>1.0.0</Version>
+    <Version>1.0</Version>
     <Authors>Uniphar</Authors>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <Title>Uniphar.Platform.Telemetry</Title>
     <Description>.NET library for enhanced telemetry, logging, and metrics collection for Uniphar applications.</Description>
     <PackageProjectUrl>https://github.com/Uniphar/platform-telemetry</PackageProjectUrl>
@@ -17,6 +18,9 @@
     <PackageTags>telemetry;logging;metrics;uniphar;dotnet;opentelemetry</PackageTags>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
   <ItemGroup>
     <!-- START OpenTelemetry-->
     <!--for aspnet core api, to filter /health, AddAspNetCoreInstrumentation-->
