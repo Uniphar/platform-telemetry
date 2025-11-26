@@ -74,7 +74,6 @@ public class MyClass
             _telemetry.TrackEvent("ProcessStarted", new() { ["Status"] = "Initiated" });
             await ProcessDataAsync();
             _telemetry.TrackEvent("ProcessCompleted", new() { ["Status"] = "Success" });
- 
         }
     }
 
