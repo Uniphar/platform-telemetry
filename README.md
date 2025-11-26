@@ -67,7 +67,7 @@ public class MyClass
     public async Task DoSomethingWithAmbientProperties()
     {
         // Use WithProperties to set ambient properties
-        // within the current async context will have these additional properties (and are removed/disposed of after)
+        // All telemetry events within the current async context will have these additional properties (which are removed/disposed of after the using block).
         using (_telemetry.WithProperties(new() {["UserId"] = "12345", ["TenantId"] = "tenant-abc" }))
         {
             // All telemetry tracked within this scope will include UserId and TenantId
