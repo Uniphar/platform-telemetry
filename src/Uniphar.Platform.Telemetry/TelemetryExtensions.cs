@@ -67,8 +67,8 @@ public static class TelemetryExtensions
                         {
                             var path = httpContext.Request.Path;
                             if (path.HasValue)
-                                //exclude health checks from telemetry
-                                if (path.Value.Equals("/health") || path.Value.Equals("/healthz"))
+                                //exclude health checks from telemetry includes /health, /healthz, /healthz/live etc
+                                if (path.Value.StartsWith("/health", StringComparison.OrdinalIgnoreCase))
                                     return false;
                             return true;
                         };
