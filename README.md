@@ -25,15 +25,25 @@ dotnet add package Uniphar.Platform.Telemetry
 
 ## Usage
 
-Add a reference to the package in your project. Example usage:
+### Basic Setup
+
+Register OpenTelemetry in your application's startup/configuration:
 
 ```csharp
 using Uniphar.Platform.Telemetry;
 
-// Register OpenTelemetry in your application's startup/configuration
-builder.RegisterOpenTelemetry("my-application");
+// Basic registration with default settings (filters out /health paths by default)
+builder.RegisterOpenTelemetry("my-application").Build();
+```
 
-// Or with custom exception handling rules
+### Advanced Configuration
+
+Use the fluent API to configure exception filters and path exclusions:
+
+```csharp
+using Uniphar.Platform.Telemetry;
+
+// Define custom exception handling rules
 var exceptionRules = new[]
 {
     new ExceptionHandlingRule(
@@ -47,9 +57,49 @@ var exceptionRules = new[]
     )
 };
 
-builder.RegisterOpenTelemetry("my-application", exceptionRules);
+// Define paths to exclude from telemetry (e.g., health checks)
+var pathsToFilterOutStartingWith = new[] { "/health", "/metrics", "/status" };
 
-// Example usage in a class
+// Register with fluent API
+builder.RegisterOpenTelemetry("my-application")
+    .WithExceptionsFilters(exceptionRules)
+    .WithFilterExclusion(pathsToFilterOutStartingWith)
+    .Build();
+```
+
+### Using the Fluent API
+
+The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you to chain configuration methods:
+
+- **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Configure exception handling rules
+- **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from telemetry
+- **`.Build()`**: Finalize and apply the telemetry configuration (must be called last)
+
+You can chain these methods in any order, and you can use one, both, or neither:
+
+```csharp
+// With exception filters only
+builder.RegisterOpenTelemetry("my-application")
+    .WithExceptionsFilters(exceptionRules)
+    .Build();
+
+// With path exclusions only
+builder.RegisterOpenTelemetry("my-application")
+    .WithFilterExclusion(new[] { "/health", "/metrics" })
+    .Build();
+
+// With both
+builder.RegisterOpenTelemetry("my-application")
+    .WithExceptionsFilters(exceptionRules)
+    .WithFilterExclusion(new[] { "/health", "/metrics" })
+    .Build();
+```
+
+### Using Custom Event Telemetry
+
+Example usage in a class:
+
+```csharp
 public class MyClass
 {
     private readonly ICustomEventTelemetryClient _telemetry;
