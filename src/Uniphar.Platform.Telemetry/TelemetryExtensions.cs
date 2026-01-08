@@ -65,9 +65,7 @@ public static class TelemetryExtensions
                     {
                         options.Filter = httpContext =>
                         {
-
                             var path = httpContext.Request.Path;
-
                             if (path.HasValue)
                                 //exclude health checks from telemetry
                                 if (path.Value.Equals("/health") || path.Value.Equals("/healthz"))
