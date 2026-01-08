@@ -63,6 +63,17 @@ public static class TelemetryExtensions
                     .SetResourceBuilder(resourceBuilder)
                     .AddAspNetCoreInstrumentation(options =>
                     {
+                        options.Filter = httpContext =>
+                        {
+
+                            var path = httpContext.Request.Path;
+
+                            if (path.HasValue)
+                                //exclude health checks from telemetry
+                                if (path.Value.Equals("/health") || path.Value.Equals("/healthz"))
+                                    return false;
+                            return true;
+                        };
                         //override the display name of the Request activity to be the path with actual values, not the generic route with placeholders
                         options.EnrichWithHttpResponse = (activity, _) =>
                         {
