@@ -18,6 +18,7 @@ public sealed class TelemetryBuilder
 
     internal IEnumerable<ExceptionHandlingRule> ExceptionHandlingRules { get; set; }
     internal IEnumerable<string> PathsToFilterOutStartingWith { get; set; }
+    internal bool EnableHttpConflictDependencyFilter { get; set; }
 
     /// <summary>
     ///     Builds and configures the OpenTelemetry services.
@@ -89,6 +90,11 @@ public sealed class TelemetryBuilder
                             }
                         };
                     });
+
+                if (EnableHttpConflictDependencyFilter)
+                {
+                    tracerProviderBuilder.AddProcessor<HttpConflictDependencyTelemetryFilter>();
+                }
 
 #if LOCAL || DEBUG
                 tracerProviderBuilder.AddConsoleExporter();

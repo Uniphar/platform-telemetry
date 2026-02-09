@@ -41,5 +41,14 @@ public static class TelemetryExtensions
             telemetryBuilder.PathsToFilterOutStartingWith = pathsToFilterOutStartingWith;
             return telemetryBuilder;
         }
+
+        /// <summary>
+        ///     Enables filtering of HTTP 409 conflict errors in dependency telemetry.
+        /// </summary>
+        public TelemetryBuilder WithFilterHttpConflictDependencyTelemetry()
+        {
+            telemetryBuilder.EnableHttpConflictDependencyFilter = true;
+            return telemetryBuilder;
+        }
     }
 }
