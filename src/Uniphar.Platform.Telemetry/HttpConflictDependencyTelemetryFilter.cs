@@ -14,7 +14,7 @@ public sealed class HttpConflictDependencyTelemetryFilter : BaseProcessor<Activi
     {
         if (ShouldFilterOut(activity))
         {
-            var status = activity.GetTagItem("http.response.status_code");
+            var status = activity.GetTagItem("http.response.status_code") ?? activity.GetTagItem("error.type");
             if (status != null && int.TryParse(status.ToString(), out var statusCode) && statusCode == (int)HttpStatusCode.Conflict)
             {
                 //remove the flag to prevent recording of failed dependency, learn more
