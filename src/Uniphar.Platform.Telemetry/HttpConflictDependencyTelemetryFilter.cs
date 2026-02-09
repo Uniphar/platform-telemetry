@@ -27,11 +27,11 @@ public sealed class HttpConflictDependencyTelemetryFilter : BaseProcessor<Activi
     private static bool ShouldFilterOut(Activity activity)
     {
         //Blob
-        if (activity.DisplayName.StartsWith("Azure blob:", StringComparison.OrdinalIgnoreCase) == true)
+        if (activity.DisplayName.StartsWith("Azure blob:", StringComparison.OrdinalIgnoreCase))
             return true;
 
         //ShareDirectoryClient
-        if (activity.DisplayName.Contains("CreateIfNotExists", StringComparison.OrdinalIgnoreCase) == true)
+        if (activity.DisplayName.Contains("CreateIfNotExists", StringComparison.OrdinalIgnoreCase))
             return true;
 
         //File shares
