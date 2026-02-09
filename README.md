@@ -8,6 +8,7 @@ Uniphar.Platform.Telemetry is a .NET library for enhanced telemetry, logging, an
 - **Ambient Properties Log Enricher**: Automatically enriches log records with ambient properties for better traceability.
 - **Exception to Custom Event Converter**: Convert exceptions into custom telemetry events for improved error tracking.
 - **Telemetry Extensions**: Extension methods for easier integration with logging and telemetry frameworks.
+- **HTTP Conflict Dependency Filter**: Automatically filters out 409 Conflict responses from Azure Storage operations to prevent them from being recorded as failed dependencies in Application Insights.
 
 ## Installation
 
@@ -94,6 +95,19 @@ builder.RegisterOpenTelemetry("my-application")
     .WithFilterExclusion(new[] { "/health", "/metrics" })
     .Build();
 ```
+
+### HTTP 409 Conflict Filtering
+
+The `HttpConflictDependencyTelemetryFilter` automatically filters out 409 Conflict responses from specific Azure operations. This is particularly useful for operations like Azure Blob Storage and File Share operations where 409 responses are expected.
+
+#### Filtered Operations
+
+The filter automatically excludes 409 Conflict responses from the following scenarios:
+
+- **Azure Blob Storage**
+- **Azure File Shares**
+
+When a 409 Conflict response is detected for these operations, the activity is marked as unrecorded, preventing it from appearing as a failed dependency in your telemetry backend.
 
 ### Using Custom Event Telemetry
 
