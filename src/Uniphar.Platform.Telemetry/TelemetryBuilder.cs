@@ -1,8 +1,5 @@
 ﻿namespace Uniphar.Platform.Telemetry;
 
-using Microsoft.AspNetCore.Http;
-using System.Diagnostics;
-
 /// <summary>
 ///     Builder for configuring OpenTelemetry services.
 /// </summary>
