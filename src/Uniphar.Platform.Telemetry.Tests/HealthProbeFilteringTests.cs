@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using AwesomeAssertions;
 using Microsoft.AspNetCore.Http;
 using Uniphar.Platform.Telemetry;
@@ -25,8 +24,8 @@ public class HealthProbeFilteringTests
         var paths = new[] { "/health" };
 
         var sampled = TelemetryBuilder.ShouldSampleRequest(ctx, paths);
-        sampled.Should().BeFalse();
 
+        sampled.Should().BeFalse();
     }
 
     [TestMethod]
