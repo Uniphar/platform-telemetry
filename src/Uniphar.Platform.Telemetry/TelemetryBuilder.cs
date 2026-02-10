@@ -73,7 +73,16 @@ public sealed class TelemetryBuilder
                             if (path.HasValue)
                                 //exclude health checks from telemetry includes /app-prefix/health, /health, /healthz, /healthz/live etc
                             {
-                                if (PathsToFilterOutStartingWith.Any(p => path.Value.StartsWith(p, StringComparison.OrdinalIgnoreCase))) return false;
+
+                                bool success = true;
+
+                                try
+                                {
+                                    success = httpContext.Response.StatusCode is (>= 200 and < 400);
+                                }
+                                catch { }
+
+                                if (success && PathsToFilterOutStartingWith.Any(p => path.Value.StartsWith(p, StringComparison.OrdinalIgnoreCase))) return false;
                             }
 
                             return true;
