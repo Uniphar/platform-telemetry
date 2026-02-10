@@ -1,5 +1,8 @@
 ﻿namespace Uniphar.Platform.Telemetry;
 
+using Microsoft.AspNetCore.Http;
+using System.Diagnostics;
+
 /// <summary>
 ///     Builder for configuring OpenTelemetry services.
 /// </summary>
@@ -18,6 +21,34 @@ public sealed class TelemetryBuilder
 
     internal IEnumerable<ExceptionHandlingRule> ExceptionHandlingRules { get; set; }
     internal IEnumerable<string> PathsToFilterOutStartingWith { get; set; }
+
+    /// <summary>
+    /// Determines whether a given HTTP request should be sampled for telemetry,
+    /// applying health-path filtering only when the response is successful (2xx-3xx).
+    /// </summary>
+    internal static bool ShouldSampleRequest(HttpContext httpContext, IEnumerable<string> pathsToFilterOutStartingWith)
+    {
+        var path = httpContext.Request.Path;
+
+        if (path.HasValue)
+        {
+            bool success = true;
+
+            try
+            {
+                success = httpContext.Response.StatusCode is (>= 200 and < 400);
+            }
+            catch
+            {
+                // If StatusCode is inaccessible, default to success=true to avoid false negatives in filtering.
+            }
+
+            if (success && pathsToFilterOutStartingWith.Any(p => path.Value.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+                return false;
+        }
+
+        return true;
+    }
 
     /// <summary>
     ///     Builds and configures the OpenTelemetry services.
@@ -69,23 +100,8 @@ public sealed class TelemetryBuilder
                     {
                         options.Filter = httpContext =>
                         {
-                            var path = httpContext.Request.Path;
-                            if (path.HasValue)
-                                //exclude health checks from telemetry includes /app-prefix/health, /health, /healthz, /healthz/live etc
-                            {
-
-                                bool success = true;
-
-                                try
-                                {
-                                    success = httpContext.Response.StatusCode is (>= 200 and < 400);
-                                }
-                                catch { }
-
-                                if (success && PathsToFilterOutStartingWith.Any(p => path.Value.StartsWith(p, StringComparison.OrdinalIgnoreCase))) return false;
-                            }
-
-                            return true;
+                            // Use extracted logic to make it testable.
+                            return ShouldSampleRequest(httpContext, PathsToFilterOutStartingWith);
                         };
                         //override the display name of the Request activity to be the path with actual values, not the generic route with placeholders
                         options.EnrichWithHttpResponse = (activity, _) =>
