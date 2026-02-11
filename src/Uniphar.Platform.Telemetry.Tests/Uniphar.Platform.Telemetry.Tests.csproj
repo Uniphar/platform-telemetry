@@ -17,6 +17,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="*" />
     <PackageReference Include="Moq" Version="*" />
+	<PackageReference Include="AwesomeAssertions" Version="*" />
     <PackageReference Include="MSTest.TestAdapter" Version="*" />
     <PackageReference Include="MSTest.TestFramework" Version="*" />
     <PackageReference Include="coverlet.collector" Version="*">
