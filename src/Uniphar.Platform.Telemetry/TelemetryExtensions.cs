@@ -44,11 +44,29 @@ public static class TelemetryExtensions
 
         /// <summary>
         ///     Configures HTTP dependency telemetry filtering with custom rules.
+        ///     If no configuration is provided, uses the default configuration that filters 409 Conflict errors for Azure Storage and Service Bus.
         /// </summary>
         /// <param name="configuration">The dependency filter configuration.</param>
-        public TelemetryBuilder WithDependencyFilter(DependencyFilterConfiguration configuration)
+        /// <example>
+        /// Configure custom rules:
+        /// <code>
+        /// builder
+        ///     .WithDependencyFilter(new DependencyFilterConfiguration
+        ///     {
+        ///         Rules =
+        ///         [
+        ///             new DependencyFilterRule
+        ///             {
+        ///                 ResourceNamespace = AzureResourceNamespaces.Storage,
+        ///                 StatusCodes = [(int)HttpStatusCode.Conflict]
+        ///             }
+        ///         ]
+        ///     });
+        /// </code>
+        /// </example>
+        public TelemetryBuilder WithDependencyFilter(DependencyFilterConfiguration? configuration = null)
         {
-            telemetryBuilder.DependencyFilterConfiguration = configuration;
+            telemetryBuilder.DependencyFilterConfiguration = configuration ?? DependencyFilterConfiguration.Default;
             return telemetryBuilder;
         }
     }
