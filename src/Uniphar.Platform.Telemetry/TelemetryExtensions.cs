@@ -43,11 +43,12 @@ public static class TelemetryExtensions
         }
 
         /// <summary>
-        ///     Enables filtering of HTTP 409 conflict errors in dependency telemetry.
+        ///     Configures HTTP dependency telemetry filtering with custom rules.
         /// </summary>
-        public TelemetryBuilder EnableHttpConflictDependencyTelemetryFilter()
+        /// <param name="configuration">The dependency filter configuration.</param>
+        public TelemetryBuilder WithDependencyFilter(DependencyFilterConfiguration configuration)
         {
-            telemetryBuilder.EnableHttpConflictDependencyFilter = true;
+            telemetryBuilder.DependencyFilterConfiguration = configuration;
             return telemetryBuilder;
         }
     }

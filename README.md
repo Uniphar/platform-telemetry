@@ -8,7 +8,7 @@ Uniphar.Platform.Telemetry is a .NET library for enhanced telemetry, logging, an
 - **Ambient Properties Log Enricher**: Automatically enriches log records with ambient properties for better traceability.
 - **Exception to Custom Event Converter**: Convert exceptions into custom telemetry events for improved error tracking.
 - **Telemetry Extensions**: Extension methods for easier integration with logging and telemetry frameworks.
-- **HTTP Conflict Dependency Filter**: Automatically filters out 409 Conflict responses from Azure Storage operations to prevent them from being recorded as failed dependencies in Application Insights.
+- **Configurable Dependency Filter**: Filter out specific HTTP error codes (401, 403, 409, etc.) from Azure resource dependency telemetry to prevent them from being recorded as failed dependencies in Application Insights.
 
 ## Installation
 
@@ -74,6 +74,7 @@ The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you 
 
 - **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Configure exception handling rules
 - **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from telemetry
+- **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering.
 - **`.Build()`**: Finalize and apply the telemetry configuration (must be called last)
 
 You can chain these methods in any order, and you can use one, both, or neither:
@@ -96,18 +97,84 @@ builder.RegisterOpenTelemetry("my-application")
     .Build();
 ```
 
-### HTTP 409 Conflict Filtering
+### Configurable HTTP Dependency Error Filtering
 
-The `HttpConflictDependencyTelemetryFilter` automatically filters out 409 Conflict responses from specific Azure operations. This is particularly useful for operations like Azure Blob Storage and File Share operations where 409 responses are expected.
+The `ConfigurableDependencyTelemetryProcessor` allows you to filter out specific HTTP error codes from Azure resource operations to prevent them from being recorded as failed dependencies in Application Insights. This is useful for scenarios where certain error codes are expected and should not trigger alerts.
 
-#### Filtered Operations
+#### Supported Azure Resource Types
 
-The filter automatically excludes 409 Conflict responses from the following scenarios:
+- **Storage** - Azure Storage (Azure Blob, File Share etc.)
+- **ContainerRegistry** - Azure Container Registry
+- **ServiceBus** - Azure Service Bus
+#### Configuration Examples
 
-- **Azure Blob Storage**
-- **Azure File Shares**
+```csharp
+var config = new DependencyFilterConfiguration
+{
+    Rules = 
+    [
+        new DependencyFilterRule
+        {
+            ResourceType = AzureResourceType.BlobStorage,
+            StatusCodesToFilter = [409]
+        },
+        new DependencyFilterRule
+        {
+            ResourceType = AzureResourceType.ContainerRegistry,
+            StatusCodesToFilter = [401]
+        }
+    ]
+};
 
-When a 409 Conflict response is detected for these operations, the activity is marked as unrecorded, preventing it from appearing as a failed dependency in your telemetry backend.
+builder.RegisterOpenTelemetry("my-application")
+    .WithDependencyFilter(config)
+    .Build();
+```
+
+#### How It Works
+
+When a dependency call is made to a supported Azure resource and results in one of the configured HTTP status codes:
+
+1. The processor identifies the Azure resource type based on the activity's display name or URL
+2. It checks if there's a matching filter rule for that resource type
+3. If the HTTP status code matches a configured code in the rule, the activity is marked as unrecorded
+4. This prevents the failed dependency from appearing in your Application Insights telemetry
+
+This is particularly useful for:
+- **409 Conflict**: Expected when creating resources that already exist (Blob containers, File shares, etc.)
+- **401 Unauthorized**: Expected during authentication retries or token refresh scenarios
+- **403 Forbidden**: Expected when checking permissions or during role-based access control flows
+
+#### Common Scenarios
+
+**Scenario 1: Filter all conflict errors from Azure Storage**
+```csharp
+.WithDependencyFilter(filter => filter
+    .FilterBlobStorage(409)
+    .FilterFileShare(409)
+    .FilterQueueStorage(409)
+    .FilterTableStorage(409)
+)
+```
+
+**Scenario 2: Filter authentication errors from external services**
+```csharp
+.WithDependencyFilter(filter => filter
+    .FilterContainerRegistry(401, 403)
+    .FilterServiceBus(401)
+)
+```
+
+**Scenario 3: Comprehensive filtering for production environments**
+```csharp
+.WithDependencyFilter(filter => filter
+    .FilterBlobStorage(409)
+    .FilterFileShare(409)
+    .FilterContainerRegistry(401, 403, 409)
+    .FilterServiceBus(401, 403)
+    .FilterQueueStorage(409)
+)
+```
 
 ### Using Custom Event Telemetry
 
