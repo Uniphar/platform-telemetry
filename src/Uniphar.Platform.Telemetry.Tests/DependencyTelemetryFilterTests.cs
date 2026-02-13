@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Uniphar.Platform.Telemetry.Tests;
@@ -7,12 +8,13 @@ namespace Uniphar.Platform.Telemetry.Tests;
 public class DependencyTelemetryFilterTests
 {
     [TestMethod]
-    [DataRow("Azure blob: PUT", "Microsoft.Storage", "409", "Microsoft.Storage", true)]
-    [DataRow("Azure blob: PUT", "Microsoft.Storage", "404", "Microsoft.Storage", false)]
-    [DataRow("Azure queue: SEND", "Microsoft.Storage", "409", "Microsoft.Storage", true)]
-    [DataRow("Azure table: INSERT", "Microsoft.Storage", "409", "Microsoft.Storage", true)]
-    [DataRow("SomeOtherOperation", null, "409", null, false)]
-    public void OnEnd_BlobStorage_FiltersConfiguredStatusCodes(string displayName, string? azNamespace, string statusCode, string? resourceNamespace, bool shouldFilter)
+    [DataRow("Azure blob: testcontainer/input", AzureResourceNamespaces.Storage, (int)HttpStatusCode.Conflict, AzureResourceNamespaces.Storage, true)]
+    [DataRow("Azure blob: testcontainer/input", AzureResourceNamespaces.Storage, (int)HttpStatusCode.TooManyRequests, AzureResourceNamespaces.Storage, false)]
+    [DataRow("PUT testcontainer/input", AzureResourceNamespaces.Storage, (int)HttpStatusCode.TooManyRequests, "System.Http", false)]
+    [DataRow("test.servicebus.windows.net", AzureResourceNamespaces.ServiceBus, (int)HttpStatusCode.Conflict, AzureResourceNamespaces.ServiceBus, true)]
+    [DataRow("test.computeaksacr.azurecr.io", AzureResourceNamespaces.ContainerRegistry, (int)HttpStatusCode.Unauthorized, AzureResourceNamespaces.ContainerRegistry, true)]
+    [DataRow("SomeOtherOperation", null, (int)HttpStatusCode.Conflict, null, false)]
+    public void OnEnd_BlobStorage_FiltersConfiguredStatusCodes(string displayName, string? azNamespace, int statusCode, string? resourceNamespace, bool shouldFilter)
     {
         // Arrange
         var configuration = new DependencyFilterConfiguration
@@ -22,17 +24,17 @@ public class DependencyTelemetryFilterTests
                 new DependencyFilterRule
                 {
                     ResourceNamespace = AzureResourceNamespaces.Storage,
-                    StatusCodes = [409]
+                    StatusCodes = [(int)HttpStatusCode.Conflict]
                 },
                 new DependencyFilterRule
                 {
-                    ResourceNamespace = AzureResourceNamespaces.Storage,
-                    StatusCodes = [409]
+                    ResourceNamespace = AzureResourceNamespaces.ServiceBus,
+                    StatusCodes = [(int)HttpStatusCode.Conflict]
                 },
                 new DependencyFilterRule
                 {
-                    ResourceNamespace = AzureResourceNamespaces.Storage,
-                    StatusCodes = [409]
+                    ResourceNamespace = AzureResourceNamespaces.ContainerRegistry,
+                    StatusCodes = [(int)HttpStatusCode.Unauthorized]
                 }
             ]
         };
