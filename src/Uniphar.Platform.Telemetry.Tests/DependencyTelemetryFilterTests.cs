@@ -6,7 +6,7 @@ namespace Uniphar.Platform.Telemetry.Tests;
 [TestClass]
 public class DependencyTelemetryFilterTests
 {
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("Azure blob: PUT", "Microsoft.Storage", "409", "Microsoft.Storage", true)]
     [DataRow("Azure blob: PUT", "Microsoft.Storage", "404", "Microsoft.Storage", false)]
     [DataRow("Azure queue: SEND", "Microsoft.Storage", "409", "Microsoft.Storage", true)]
