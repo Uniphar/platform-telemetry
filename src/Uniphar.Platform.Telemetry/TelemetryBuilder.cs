@@ -18,6 +18,7 @@ public sealed class TelemetryBuilder
 
     internal IEnumerable<ExceptionHandlingRule> ExceptionHandlingRules { get; set; }
     internal IEnumerable<string> PathsToFilterOutStartingWith { get; set; }
+    internal DependencyFilterConfiguration? DependencyFilterConfiguration { get; set; }
 
     /// <summary>
     /// Determines whether a given HTTP request should be sampled for telemetry,
@@ -111,6 +112,14 @@ public sealed class TelemetryBuilder
                             }
                         };
                     });
+
+                if (DependencyFilterConfiguration is not null)
+                {
+                    tracerProviderBuilder
+                        //capture all dependencies from Azure SDKs
+                        .AddSource("Azure.*")
+                        .AddProcessor(new DependencyTelemetryFilter(DependencyFilterConfiguration));
+                }
 
 #if LOCAL || DEBUG
                 tracerProviderBuilder.AddConsoleExporter();
