@@ -14,13 +14,11 @@ public sealed class TelemetryBuilder
         _appName = appName;
         PathsToFilterOutStartingWith = ["/health"];
         ExceptionHandlingRules = [];
-        LogCategoryFilters = LogCategoryFilter.AzureSdkDefaults;
     }
 
     internal IEnumerable<ExceptionHandlingRule> ExceptionHandlingRules { get; set; }
     internal IEnumerable<string> PathsToFilterOutStartingWith { get; set; }
     internal DependencyFilterConfiguration? DependencyFilterConfiguration { get; set; }
-    internal IEnumerable<LogCategoryFilter> LogCategoryFilters { get; set; }
 
     /// <summary>
     /// Determines whether a given HTTP request should be sampled for telemetry,
@@ -68,12 +66,13 @@ public sealed class TelemetryBuilder
             .AddTelemetrySdk()
             .AddService(cloudRoleName);
 
-        // Apply log category filters to reduce noise from SDK libraries
-        // These logs are often redundant as the operations are already tracked as dependencies
-        foreach (var filter in LogCategoryFilters)
-        {
-            _builder.Logging.AddFilter(filter.CategoryName, filter.MinimumLevel);
-        }
+        // Remove all default logging providers (Console, Debug, EventSource) so that
+        // application logs no longer write to stdout/stderr. This prevents duplicate
+        // data in ContainerLogsV2/ADX — all telemetry is exported directly to
+        // Application Insights via the OpenTelemetry Azure Monitor exporter.
+#if !LOCAL && !DEBUG
+        _builder.Logging.ClearProviders();
+#endif
 
         _builder.Logging.AddOpenTelemetry(options =>
         {
