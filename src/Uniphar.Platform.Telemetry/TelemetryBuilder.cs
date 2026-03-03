@@ -60,11 +60,10 @@ public sealed class TelemetryBuilder
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
 
 
-        var cloudRoleName = $"{_appName}";
         var resourceBuilder = ResourceBuilder
             .CreateDefault()
             .AddTelemetrySdk()
-            .AddService(cloudRoleName);
+            .AddService(_appName);
 
         // Remove all default logging providers (Console, Debug, EventSource) so that
         // application logs no longer write to stdout/stderr. This prevents duplicate
@@ -155,11 +154,10 @@ public sealed class TelemetryBuilder
 #endif
             });
 
-        //enrich Dependency telemetry with ambient properties
+        //enrich all telemetry (requests, dependencies, custom events) with ambient properties
         ActivitySource.AddActivityListener(new()
         {
             ShouldListenTo = _ => true,
-            Sample = (ref _) => ActivitySamplingResult.AllDataAndRecorded,
             ActivityStarted = activity =>
             {
                 var activityTags = AmbientTelemetryProperties.AmbientProperties.SelectMany(p => p.PropertiesToInject);

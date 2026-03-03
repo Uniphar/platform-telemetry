@@ -54,12 +54,7 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
             }
         }
 
-        // Include ambient properties
-        var ambientTags = AmbientTelemetryProperties.AmbientProperties
-            .SelectMany(p => p.PropertiesToInject);
-        foreach (var (key, value) in ambientTags)
-        {
-            activity.SetTag(key, value);
-        }
+        // Ambient properties are injected by the global ActivityListener
+        // registered in TelemetryBuilder.Build() — no need to add them here.
     }
 }
