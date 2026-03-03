@@ -28,24 +28,19 @@ public sealed class TelemetryBuilder
     {
         var path = httpContext.Request.Path;
 
-        if (path.HasValue)
+        if (!path.HasValue) return true;
+        var success = true;
+
+        try
         {
-            bool success = true;
-
-            try
-            {
-                success = httpContext.Response.StatusCode is (>= 200 and < 400);
-            }
-            catch
-            {
-                // If StatusCode is inaccessible, default to success=true to avoid false negatives in filtering.
-            }
-
-            if (success && pathsToFilterOutStartingWith.Any(p => path.Value.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
-                return false;
+            success = httpContext.Response.StatusCode is (>= 200 and < 400);
+        }
+        catch
+        {
+            // If StatusCode is inaccessible, default to success=true to avoid false negatives in filtering.
         }
 
-        return true;
+        return !success || !pathsToFilterOutStartingWith.Any(p => path.Value.StartsWith(p, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -53,8 +48,7 @@ public sealed class TelemetryBuilder
     /// </summary>
     public void Build()
     {
-        _builder.Services.AddSingleton<ICustomEventTelemetryClient>(
-            _ => new CustomEventTelemetryClient(_appName));
+        _builder.Services.AddSingleton<ICustomEventTelemetryClient>(_ => new CustomEventTelemetryClient(_appName));
 
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
@@ -105,20 +99,14 @@ public sealed class TelemetryBuilder
                     .SetResourceBuilder(resourceBuilder)
                     .AddAspNetCoreInstrumentation(options =>
                     {
-                        options.Filter = httpContext =>
-                        {
-                            // Use extracted logic to make it testable.
-                            return ShouldSampleRequest(httpContext, PathsToFilterOutStartingWith);
-                        };
+                        options.Filter = httpContext => ShouldSampleRequest(httpContext, PathsToFilterOutStartingWith);
                         //override the display name of the Request activity to be the path with actual values, not the generic route with placeholders
                         options.EnrichWithHttpResponse = (activity, _) =>
                         {
                             var path = activity.GetTagItem("url.path")?.ToString();
-                            if (!string.IsNullOrWhiteSpace(path))
-                            {
-                                activity.DisplayName = path;
-                                activity.SetTag("http.route", path);
-                            }
+                            if (string.IsNullOrWhiteSpace(path)) return;
+                            activity.DisplayName = path;
+                            activity.SetTag("http.route", path);
                         };
                     });
 

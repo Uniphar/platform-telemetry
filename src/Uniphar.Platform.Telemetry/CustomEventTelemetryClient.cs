@@ -24,9 +24,9 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
     /// Initializes a new instance of the CustomEventTelemetryClient class.
     /// </summary>
     /// <param name="serviceName">The name of the service for telemetry tracking</param>
-    public CustomEventTelemetryClient(string serviceName)
+    internal CustomEventTelemetryClient(string serviceName)
     {
-        _activitySource = new ActivitySource($"{serviceName}.CustomEvents");
+        _activitySource = new($"{serviceName}.CustomEvents");
     }
 
     /// <inheritdoc />
@@ -46,15 +46,10 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
         activity.SetTag("microsoft.custom_event.name", eventName);
 
         // Add all custom properties as tags
-        if (state is not null)
+        if (state is null) return;
+        foreach (var (key, value) in state)
         {
-            foreach (var (key, value) in state)
-            {
-                activity.SetTag(key, value);
-            }
+            activity.SetTag(key, value);
         }
-
-        // Ambient properties are injected by the global ActivityListener
-        // registered in TelemetryBuilder.Build() — no need to add them here.
     }
 }

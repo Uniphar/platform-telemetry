@@ -13,20 +13,21 @@ public sealed class DependencyFilterConfiguration
     /// <summary>
     /// Creates a default configuration that filters 409 Conflict errors for Azure Storage and Service Bus.
     /// </summary>
-    public static DependencyFilterConfiguration Default => new()
-    {
-        Rules =
-        [
-            new DependencyFilterRule
-            {
-                ResourceNamespace = AzureResourceNamespaces.Storage,
-                StatusCodes = [409]
-            },
-            new DependencyFilterRule
-            {
-                ResourceNamespace = AzureResourceNamespaces.ServiceBus,
-                StatusCodes = [409]
-            }
-        ]
-    };
+    public static DependencyFilterConfiguration Default =>
+        new()
+        {
+            Rules =
+            [
+                new()
+                {
+                    ResourceNamespace = AzureResourceNamespaces.Storage,
+                    StatusCodes = [409]
+                },
+                new()
+                {
+                    ResourceNamespace = AzureResourceNamespaces.ServiceBus,
+                    StatusCodes = [409]
+                }
+            ]
+        };
 }
