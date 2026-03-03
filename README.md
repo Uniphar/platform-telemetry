@@ -68,42 +68,24 @@ builder.RegisterOpenTelemetry("my-application")
     .Build();
 ```
 
-### Log Category Filtering
+### Console Log Suppression
 
-By default, Azure SDK logs (Azure, Azure.Core, Azure.Identity) are filtered to Warning level to reduce log noise, as these operations are already tracked as dependencies. You can customize this behavior:
+In non-debug builds, the library automatically removes all default logging providers (Console, Debug, EventSource) via `ClearProviders()`. This prevents application logs from writing to stdout/stderr, eliminating duplicate data in ContainerLogsV2/ADX — all telemetry is exported directly to Application Insights via the OpenTelemetry Azure Monitor exporter.
 
-```csharp
-using Uniphar.Platform.Telemetry;
+Log level filtering should be configured in your application's `appsettings.json`:
 
-// Use default Azure SDK filters (recommended)
-builder.RegisterOpenTelemetry("my-application")
-    .Build();
-
-// Customize log category filters
-var logFilters = new[]
+```json
 {
-    new LogCategoryFilter("Azure", LogLevel.Error),
-    new LogCategoryFilter("Azure.Identity", LogLevel.Warning),
-    new LogCategoryFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning),
-    new LogCategoryFilter("System.Net.Http.HttpClient", LogLevel.Information)
-};
-
-builder.RegisterOpenTelemetry("my-application")
-    .WithLogCategoryFilters(logFilters)
-    .Build();
-
-// Disable log category filtering (not recommended for production)
-builder.RegisterOpenTelemetry("my-application")
-    .WithLogCategoryFilters([])
-    .Build();
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "Azure": "Warning",
+      "Azure.Core": "Warning",
+      "Azure.Identity": "Warning"
+    }
+  }
+}
 ```
-
-**Why filter Azure SDK logs?**
-
-- Azure SDK operations are already tracked as **dependency telemetry** in Application Insights
-- Informational logs like "GetToken succeeded" create duplicate data in ContainerLogV2 (ADX)
-- Filtering reduces log volume, storage costs, and noise without losing visibility
-- Warnings and errors from Azure SDKs are still logged
 
 ### Using the Fluent API
 
@@ -111,7 +93,6 @@ The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you 
 
 - **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Configure exception handling rules
 - **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from telemetry
-- **`.WithLogCategoryFilters(IEnumerable<LogCategoryFilter>)`**: Configure log category filtering (Azure SDK defaults applied automatically)
 - **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering
 - **`.Build()`**: Finalize and apply the telemetry configuration (must be called last)
 
@@ -128,20 +109,11 @@ builder.RegisterOpenTelemetry("my-application")
     .WithFilterExclusion(new[] { "/health", "/metrics" })
     .Build();
 
-// With custom log filtering
-builder.RegisterOpenTelemetry("my-application")
-    .WithLogCategoryFilters(new[]
-    {
-        new LogCategoryFilter("Azure", LogLevel.Error),
-        new LogCategoryFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning)
-    })
-    .Build();
-
 // Combining multiple configurations
 builder.RegisterOpenTelemetry("my-application")
     .WithExceptionsFilters(exceptionRules)
     .WithFilterExclusion(new[] { "/health", "/metrics" })
-    .WithLogCategoryFilters(customLogFilters)
+    .WithDependencyFilter()
     .Build();
 ```
 
