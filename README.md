@@ -68,16 +68,54 @@ builder.RegisterOpenTelemetry("my-application")
     .Build();
 ```
 
+### Log Category Filtering
+
+By default, Azure SDK logs (Azure, Azure.Core, Azure.Identity) are filtered to Warning level to reduce log noise, as these operations are already tracked as dependencies. You can customize this behavior:
+
+```csharp
+using Uniphar.Platform.Telemetry;
+
+// Use default Azure SDK filters (recommended)
+builder.RegisterOpenTelemetry("my-application")
+    .Build();
+
+// Customize log category filters
+var logFilters = new[]
+{
+    new LogCategoryFilter("Azure", LogLevel.Error),
+    new LogCategoryFilter("Azure.Identity", LogLevel.Warning),
+    new LogCategoryFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning),
+    new LogCategoryFilter("System.Net.Http.HttpClient", LogLevel.Information)
+};
+
+builder.RegisterOpenTelemetry("my-application")
+    .WithLogCategoryFilters(logFilters)
+    .Build();
+
+// Disable log category filtering (not recommended for production)
+builder.RegisterOpenTelemetry("my-application")
+    .WithLogCategoryFilters([])
+    .Build();
+```
+
+**Why filter Azure SDK logs?**
+
+- Azure SDK operations are already tracked as **dependency telemetry** in Application Insights
+- Informational logs like "GetToken succeeded" create duplicate data in ContainerLogV2 (ADX)
+- Filtering reduces log volume, storage costs, and noise without losing visibility
+- Warnings and errors from Azure SDKs are still logged
+
 ### Using the Fluent API
 
 The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you to chain configuration methods:
 
 - **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Configure exception handling rules
 - **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from telemetry
-- **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering.
+- **`.WithLogCategoryFilters(IEnumerable<LogCategoryFilter>)`**: Configure log category filtering (Azure SDK defaults applied automatically)
+- **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering
 - **`.Build()`**: Finalize and apply the telemetry configuration (must be called last)
 
-You can chain these methods in any order, and you can use one, both, or neither:
+You can chain these methods in any order:
 
 ```csharp
 // With exception filters only
@@ -90,10 +128,20 @@ builder.RegisterOpenTelemetry("my-application")
     .WithFilterExclusion(new[] { "/health", "/metrics" })
     .Build();
 
-// With both
+// With custom log filtering
+builder.RegisterOpenTelemetry("my-application")
+    .WithLogCategoryFilters(new[]
+    {
+        new LogCategoryFilter("Azure", LogLevel.Error),
+        new LogCategoryFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning)
+    })
+    .Build();
+
+// Combining multiple configurations
 builder.RegisterOpenTelemetry("my-application")
     .WithExceptionsFilters(exceptionRules)
     .WithFilterExclusion(new[] { "/health", "/metrics" })
+    .WithLogCategoryFilters(customLogFilters)
     .Build();
 ```
 
@@ -106,12 +154,13 @@ The `ConfigurableDependencyTelemetryProcessor` allows you to filter out specific
 - **Storage** - Azure Storage (Azure Blob, File Share etc.)
 - **ContainerRegistry** - Azure Container Registry
 - **ServiceBus** - Azure Service Bus
+
 #### Configuration Examples
 
 ```csharp
 var config = new DependencyFilterConfiguration
 {
-    Rules = 
+    Rules =
     [
         new DependencyFilterRule
         {
@@ -141,6 +190,7 @@ When a dependency call is made to a supported Azure resource and results in one 
 4. This prevents the failed dependency from appearing in your Application Insights telemetry
 
 This is particularly useful for:
+
 - **409 Conflict**: Expected when creating resources that already exist (Blob containers, File shares, etc.)
 - **401 Unauthorized**: Expected during authentication retries or token refresh scenarios
 - **403 Forbidden**: Expected when checking permissions or during role-based access control flows
@@ -148,6 +198,7 @@ This is particularly useful for:
 #### Common Scenarios
 
 **Scenario 1: Filter all conflict errors from Azure Storage**
+
 ```csharp
 .WithDependencyFilter(filter => filter
     .FilterBlobStorage(409)
@@ -158,6 +209,7 @@ This is particularly useful for:
 ```
 
 **Scenario 2: Filter authentication errors from external services**
+
 ```csharp
 .WithDependencyFilter(filter => filter
     .FilterContainerRegistry(401, 403)
@@ -166,6 +218,7 @@ This is particularly useful for:
 ```
 
 **Scenario 3: Comprehensive filtering for production environments**
+
 ```csharp
 .WithDependencyFilter(filter => filter
     .FilterBlobStorage(409)

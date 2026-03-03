@@ -43,6 +43,29 @@ public static class TelemetryExtensions
         }
 
         /// <summary>
+        ///     Configures log category filters to reduce log noise from SDK libraries.
+        ///     By default, Azure SDK logs are filtered to Warning level since these operations
+        ///     are already tracked as dependencies via OpenTelemetry tracing.
+        /// </summary>
+        /// <param name="logCategoryFilters">Log category filters to apply</param>
+        /// <example>
+        /// Configure custom log filters:
+        /// <code>
+        /// builder
+        ///     .WithLogCategoryFilters(new[]
+        ///     {
+        ///         new LogCategoryFilter("Azure", LogLevel.Error),
+        ///         new LogCategoryFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning)
+        ///     });
+        /// </code>
+        /// </example>
+        public TelemetryBuilder WithLogCategoryFilters(IEnumerable<LogCategoryFilter> logCategoryFilters)
+        {
+            telemetryBuilder.LogCategoryFilters = logCategoryFilters;
+            return telemetryBuilder;
+        }
+
+        /// <summary>
         ///     Configures HTTP dependency telemetry filtering with custom rules.
         ///     If no configuration is provided, uses the default configuration that filters 409 Conflict errors for Azure Storage and Service Bus.
         /// </summary>

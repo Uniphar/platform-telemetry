@@ -14,11 +14,13 @@ public sealed class TelemetryBuilder
         _appName = appName;
         PathsToFilterOutStartingWith = ["/health"];
         ExceptionHandlingRules = [];
+        LogCategoryFilters = LogCategoryFilter.AzureSdkDefaults;
     }
 
     internal IEnumerable<ExceptionHandlingRule> ExceptionHandlingRules { get; set; }
     internal IEnumerable<string> PathsToFilterOutStartingWith { get; set; }
     internal DependencyFilterConfiguration? DependencyFilterConfiguration { get; set; }
+    internal IEnumerable<LogCategoryFilter> LogCategoryFilters { get; set; }
 
     /// <summary>
     /// Determines whether a given HTTP request should be sampled for telemetry,
@@ -53,7 +55,8 @@ public sealed class TelemetryBuilder
     /// </summary>
     public void Build()
     {
-        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
+        _builder.Services.AddSingleton<ICustomEventTelemetryClient>(
+            _ => new CustomEventTelemetryClient(_appName));
 
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
@@ -64,6 +67,13 @@ public sealed class TelemetryBuilder
             .CreateDefault()
             .AddTelemetrySdk()
             .AddService(cloudRoleName);
+
+        // Apply log category filters to reduce noise from SDK libraries
+        // These logs are often redundant as the operations are already tracked as dependencies
+        foreach (var filter in LogCategoryFilters)
+        {
+            _builder.Logging.AddFilter(filter.CategoryName, filter.MinimumLevel);
+        }
 
         _builder.Logging.AddOpenTelemetry(options =>
         {
@@ -93,6 +103,7 @@ public sealed class TelemetryBuilder
             {
                 tracerProviderBuilder
                     .AddSource(_appName)
+                    .AddSource($"{_appName}.CustomEvents") // Add custom events source
                     .SetResourceBuilder(resourceBuilder)
                     .AddAspNetCoreInstrumentation(options =>
                     {

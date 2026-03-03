@@ -16,18 +16,50 @@ public interface ICustomEventTelemetryClient
 /// <summary>
 ///     Service to track custom events in Application Insights via OpenTelemetry
 /// </summary>
-public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClient> logger) : ICustomEventTelemetryClient
+public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
 {
-    private const string CustomEventAttribute = "{microsoft.custom_event.name}";
+    private readonly ActivitySource _activitySource;
+
+    /// <summary>
+    /// Initializes a new instance of the CustomEventTelemetryClient class.
+    /// </summary>
+    /// <param name="serviceName">The name of the service for telemetry tracking</param>
+    public CustomEventTelemetryClient(string serviceName)
+    {
+        _activitySource = new ActivitySource($"{serviceName}.CustomEvents");
+    }
 
     /// <inheritdoc />
     public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
     {
-        var customProperties = state ?? new Dictionary<string, object>();
-        using (logger.BeginScope(customProperties))
-            //this is how OpenTelemetry tracks custom events in AppInsights
-            //Note that it is logged as a critical event on purpose.
-            //Otherwise, if you use the LogInformation, but LogLevel is set to Error it will not appear in AppInsights.
-            logger.LogCritical(CustomEventAttribute, eventName);
+        // Use ActivitySource to create a custom event that goes to Application Insights
+        // but does NOT go to console logs or ContainerLogV2
+        using var activity = _activitySource.StartActivity(
+            name: eventName,
+            kind: ActivityKind.Internal
+        );
+
+        if (activity is null)
+            return;
+
+        // Add custom event marker for Application Insights
+        activity.SetTag("microsoft.custom_event.name", eventName);
+
+        // Add all custom properties as tags
+        if (state is not null)
+        {
+            foreach (var (key, value) in state)
+            {
+                activity.SetTag(key, value);
+            }
+        }
+
+        // Include ambient properties
+        var ambientTags = AmbientTelemetryProperties.AmbientProperties
+            .SelectMany(p => p.PropertiesToInject);
+        foreach (var (key, value) in ambientTags)
+        {
+            activity.SetTag(key, value);
+        }
     }
 }
