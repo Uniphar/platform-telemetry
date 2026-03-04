@@ -94,7 +94,6 @@ public sealed class TelemetryBuilder
             {
                 tracerProviderBuilder
                     .AddSource(_appName)
-                    .AddSource($"{_appName}.CustomEvents") // Add custom events source
                     .SetResourceBuilder(resourceBuilder)
                     .AddAspNetCoreInstrumentation(options =>
                     {
