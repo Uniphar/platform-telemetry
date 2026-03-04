@@ -48,8 +48,7 @@ public sealed class TelemetryBuilder
     /// </summary>
     public void Build()
     {
-        _builder.Services.AddSingleton<ICustomEventTelemetryClient>(_ => new CustomEventTelemetryClient(_appName));
-
+        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
 

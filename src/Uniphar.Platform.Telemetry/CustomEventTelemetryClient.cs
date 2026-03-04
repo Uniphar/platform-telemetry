@@ -16,40 +16,20 @@ public interface ICustomEventTelemetryClient
 /// <summary>
 ///     Service to track custom events in Application Insights via OpenTelemetry
 /// </summary>
-public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
+public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClient> logger) : ICustomEventTelemetryClient
 {
-    private readonly ActivitySource _activitySource;
+    private const string CustomEventAttribute = "{microsoft.custom_event.name}";
 
     /// <summary>
-    /// Initializes a new instance of the CustomEventTelemetryClient class.
+    ///     Service to track custom events in Application Insights via OpenTelemetry
     /// </summary>
-    /// <param name="serviceName">The name of the service for telemetry tracking</param>
-    internal CustomEventTelemetryClient(string serviceName)
-    {
-        _activitySource = new($"{serviceName}.CustomEvents");
-    }
-
-    /// <inheritdoc />
     public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
     {
-        // Use ActivitySource to create a custom event that goes to Application Insights
-        // but does NOT go to console logs or ContainerLogV2
-        using var activity = _activitySource.StartActivity(
-            name: eventName,
-            kind: ActivityKind.Internal
-        );
-
-        if (activity is null)
-            return;
-
-        // Add custom event marker for Application Insights
-        activity.SetTag("microsoft.custom_event.name", eventName);
-
-        // Add all custom properties as tags
-        if (state is null) return;
-        foreach (var (key, value) in state)
-        {
-            activity.SetTag(key, value);
-        }
+        var customProperties = state ?? new Dictionary<string, object>();
+        using (logger.BeginScope(customProperties))
+            //this is how OpenTelemetry tracks custom events in AppInsights
+            //Note that it is logged as a critical event on purpose.
+            //Otherwise, if you use the LogInformation, but LogLevel is set to Error it will not appear in AppInsights.
+            logger.LogCritical(CustomEventAttribute, eventName);
     }
 }
