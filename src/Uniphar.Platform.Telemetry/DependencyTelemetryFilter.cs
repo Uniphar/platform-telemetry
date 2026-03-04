@@ -20,8 +20,7 @@ public sealed class DependencyTelemetryFilter : BaseProcessor<Activity>
     /// </summary>
     public override void OnEnd(Activity activity)
     {
-        var resourceNamespace = activity.GetTagItem("az.namespace")?.ToString()
-                          ?? activity.GetTagItem("azure.resource_provider.namespace")?.ToString();
+        var resourceNamespace = activity.GetTagItem("az.namespace")?.ToString() ?? activity.GetTagItem("azure.resource_provider.namespace")?.ToString();
 
         if (string.IsNullOrEmpty(resourceNamespace))
         {

@@ -15,7 +15,7 @@ public sealed class DependencyFilterBuilder
         if (statusCodes.Length == 0)
             throw new ArgumentException("At least one status code must be specified.", nameof(statusCodes));
 
-        _rules.Add(new DependencyFilterRule
+        _rules.Add(new()
         {
             ResourceNamespace = resourceNamespace,
             StatusCodes = statusCodes

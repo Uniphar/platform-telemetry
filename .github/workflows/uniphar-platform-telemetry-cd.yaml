@@ -23,7 +23,7 @@ jobs:
         working-directory: ./src/Uniphar.Platform.Telemetry
 
     steps:
-      - name: azure login
+      - name: Azure Login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -31,12 +31,12 @@ jobs:
           subscription-id: ${{ secrets.AZURE_PLATFORM_SUBSCRIPTION_ID }}
           enable-AzPSSession: true
 
-      - name: checkout repo
-        uses: actions/checkout@v4
+      - name: Checkout Repo
+        uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "9"
+          dotnet-version: "10.x"
 
       - name: Update Version in .csproj
         shell: pwsh
@@ -56,13 +56,13 @@ jobs:
               Write-Error "Could not find a <Version> tag in $csprojPath"
           }
 
-      - name: Restore dependencies
+      - name: Restore Dependencies
         run: dotnet restore --no-cache --force
 
-      - name: dotnet pack
+      - name: Dotnet Pack
         run: dotnet pack --configuration Release --output ./.nupkgs
 
-      - name: get NuGet repository API key
+      - name: Get NuGet Repository API Key
         uses: azure/powershell@v2
         with:
           inlineScript: |
@@ -74,6 +74,6 @@ jobs:
           errorActionPreference: "stop"
           failOnStandardError: true
 
-      - name: dotnet nuget push
+      - name: Dotnet NuGet Push
         working-directory: ./src/Uniphar.Platform.Telemetry
         run: dotnet nuget push ./.nupkgs/*.nupkg --source 'https://api.nuget.org/v3/index.json' --api-key $NUGET_API_KEY

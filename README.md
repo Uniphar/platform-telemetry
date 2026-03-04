@@ -68,16 +68,35 @@ builder.RegisterOpenTelemetry("my-application")
     .Build();
 ```
 
+### Console Log Suppression
+
+When the `Uniphar.Platform.Telemetry` package itself is built without the `DEBUG` compilation symbol (for example, in a Release build of the library), it automatically removes all default logging providers (Console, Debug, EventSource) via `ClearProviders()`. This behavior is fixed at library build time and applies to consuming applications regardless of whether they are built in Debug or Release. This prevents application logs from writing to stdout/stderr, eliminating duplicate data in ContainerLogsV2/ADX — all telemetry is exported directly to Application Insights via the OpenTelemetry Azure Monitor exporter.
+
+Log level filtering should be configured in your application's `appsettings.json`:
+
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "Azure": "Warning",
+      "Azure.Core": "Warning",
+      "Azure.Identity": "Warning"
+    }
+  }
+}
+```
+
 ### Using the Fluent API
 
 The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you to chain configuration methods:
 
 - **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Configure exception handling rules
 - **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from telemetry
-- **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering.
+- **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering
 - **`.Build()`**: Finalize and apply the telemetry configuration (must be called last)
 
-You can chain these methods in any order, and you can use one, both, or neither:
+You can chain these methods in any order:
 
 ```csharp
 // With exception filters only
@@ -90,10 +109,11 @@ builder.RegisterOpenTelemetry("my-application")
     .WithFilterExclusion(new[] { "/health", "/metrics" })
     .Build();
 
-// With both
+// Combining multiple configurations
 builder.RegisterOpenTelemetry("my-application")
     .WithExceptionsFilters(exceptionRules)
     .WithFilterExclusion(new[] { "/health", "/metrics" })
+    .WithDependencyFilter()
     .Build();
 ```
 
@@ -106,12 +126,13 @@ The `ConfigurableDependencyTelemetryProcessor` allows you to filter out specific
 - **Storage** - Azure Storage (Azure Blob, File Share etc.)
 - **ContainerRegistry** - Azure Container Registry
 - **ServiceBus** - Azure Service Bus
+
 #### Configuration Examples
 
 ```csharp
 var config = new DependencyFilterConfiguration
 {
-    Rules = 
+    Rules =
     [
         new DependencyFilterRule
         {
@@ -141,6 +162,7 @@ When a dependency call is made to a supported Azure resource and results in one 
 4. This prevents the failed dependency from appearing in your Application Insights telemetry
 
 This is particularly useful for:
+
 - **409 Conflict**: Expected when creating resources that already exist (Blob containers, File shares, etc.)
 - **401 Unauthorized**: Expected during authentication retries or token refresh scenarios
 - **403 Forbidden**: Expected when checking permissions or during role-based access control flows
@@ -148,6 +170,7 @@ This is particularly useful for:
 #### Common Scenarios
 
 **Scenario 1: Filter all conflict errors from Azure Storage**
+
 ```csharp
 .WithDependencyFilter(filter => filter
     .FilterBlobStorage(409)
@@ -158,6 +181,7 @@ This is particularly useful for:
 ```
 
 **Scenario 2: Filter authentication errors from external services**
+
 ```csharp
 .WithDependencyFilter(filter => filter
     .FilterContainerRegistry(401, 403)
@@ -166,6 +190,7 @@ This is particularly useful for:
 ```
 
 **Scenario 3: Comprehensive filtering for production environments**
+
 ```csharp
 .WithDependencyFilter(filter => filter
     .FilterBlobStorage(409)

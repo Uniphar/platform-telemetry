@@ -20,7 +20,9 @@ public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClien
 {
     private const string CustomEventAttribute = "{microsoft.custom_event.name}";
 
-    /// <inheritdoc />
+    /// <summary>
+    ///     Service to track custom events in Application Insights via OpenTelemetry
+    /// </summary>
     public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
     {
         var customProperties = state ?? new Dictionary<string, object>();
