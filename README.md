@@ -70,7 +70,7 @@ builder.RegisterOpenTelemetry("my-application")
 
 ### Console Log Suppression
 
-In non-debug builds, the library automatically removes all default logging providers (Console, Debug, EventSource) via `ClearProviders()`. This prevents application logs from writing to stdout/stderr, eliminating duplicate data in ContainerLogsV2/ADX — all telemetry is exported directly to Application Insights via the OpenTelemetry Azure Monitor exporter.
+When the `Uniphar.Platform.Telemetry` package itself is built without the `DEBUG` compilation symbol (for example, in a Release build of the library), it automatically removes all default logging providers (Console, Debug, EventSource) via `ClearProviders()`. This behavior is fixed at library build time and applies to consuming applications regardless of whether they are built in Debug or Release. This prevents application logs from writing to stdout/stderr, eliminating duplicate data in ContainerLogsV2/ADX — all telemetry is exported directly to Application Insights via the OpenTelemetry Azure Monitor exporter.
 
 Log level filtering should be configured in your application's `appsettings.json`:
 
