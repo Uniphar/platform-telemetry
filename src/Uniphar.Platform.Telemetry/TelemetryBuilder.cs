@@ -62,17 +62,7 @@ public sealed class TelemetryBuilder
         // application logs no longer write to stdout/stderr. This prevents duplicate
         // data in ContainerLogsV2/ADX — all telemetry is exported directly to
         // Application Insights via the OpenTelemetry Azure Monitor exporter.
-#if !LOCAL && !DEBUG
         _builder.Logging.ClearProviders();
-#endif
-
-        _builder.Logging.AddOpenTelemetry(options =>
-        {
-            options.SetResourceBuilder(resourceBuilder);
-            options.IncludeScopes = true;
-            options.IncludeFormattedMessage = true;
-            options.ParseStateValues = true;
-        });
 
         var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"];
         _builder
@@ -122,11 +112,13 @@ public sealed class TelemetryBuilder
                 tracerProviderBuilder.SetSampler(new AlwaysOnSampler());
 #endif
             })
-            .WithLogging(loggerProviderBuilder => loggerProviderBuilder
-                .SetResourceBuilder(resourceBuilder)
-                .AddProcessor<AmbientPropertiesLogRecordInjector>()
-                .AddProcessor<ExceptionToCustomEventConverter>()
-            )
+            .WithLogging(loggerProviderBuilder =>
+            {
+                loggerProviderBuilder
+                    .SetResourceBuilder(resourceBuilder)
+                    .AddProcessor<AmbientPropertiesLogRecordInjector>()
+                    .AddProcessor<ExceptionToCustomEventConverter>();
+            })
             .WithMetrics(metricsBuilder =>
             {
                 metricsBuilder
@@ -139,6 +131,17 @@ public sealed class TelemetryBuilder
                 metricsBuilder.AddConsoleExporter();
 #endif
             });
+
+        //enrich all telemetry (requests, dependencies, custom events) with ambient properties
+        ActivitySource.AddActivityListener(new()
+        {
+            ShouldListenTo = _ => true,
+            ActivityStarted = activity =>
+            {
+                var activityTags = AmbientTelemetryProperties.AmbientProperties.SelectMany(p => p.PropertiesToInject);
+                foreach (var (name, value) in activityTags) activity.SetTag(name, value);
+            }
+        });
 
         //enrich all telemetry (requests, dependencies, custom events) with ambient properties
         ActivitySource.AddActivityListener(new()
