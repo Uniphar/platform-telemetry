@@ -52,14 +52,9 @@ public sealed class TelemetryBuilder
         Environment.SetEnvironmentVariable("OTEL_LOG_LEVEL", "none");
 
         // Remove all default logging providers (Console, Debug, EventSource) so that
-        // application logs no longer write to stdout/stderr. we use app insights for logging, so no need for default providers.
+        // application logs no longer write to stdout/stderr. we use app insight for logging, so no need for default providers.
         _builder.Logging.ClearProviders();
 
-        // Ensure no console provider can be added by configuration or third-party libraries
-        _builder.Logging.Configure(options =>
-        {
-            options.ActivityTrackingOptions = ActivityTrackingOptions.None;
-        });
         var resourceBuilder = ResourceBuilder
             .CreateDefault()
             .AddTelemetrySdk()
