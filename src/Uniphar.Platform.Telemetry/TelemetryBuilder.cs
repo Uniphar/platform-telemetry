@@ -48,21 +48,14 @@ public sealed class TelemetryBuilder
     /// </summary>
     public void Build()
     {
-        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
-        // Register exception handling rules
-        _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
 
-
+        // Remove all default logging providers (Console, Debug, EventSource) so that
+        // application logs no longer write to stdout/stderr. we use app insights for logging, so no need for default providers.
+        _builder.Logging.ClearProviders();
         var resourceBuilder = ResourceBuilder
             .CreateDefault()
             .AddTelemetrySdk()
             .AddService(_appName);
-
-        // Remove all default logging providers (Console, Debug, EventSource) so that
-        // application logs no longer write to stdout/stderr. This prevents duplicate
-        // data in ContainerLogsV2/ADX — all telemetry is exported directly to
-        // Application Insights via the OpenTelemetry Azure Monitor exporter.
-        _builder.Logging.ClearProviders();
 
         var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"];
         _builder
@@ -105,12 +98,6 @@ public sealed class TelemetryBuilder
                         .AddSource("Azure.*")
                         .AddProcessor(new DependencyTelemetryFilter(DependencyFilterConfiguration));
                 }
-
-#if LOCAL || DEBUG
-                tracerProviderBuilder.AddConsoleExporter();
-                //no sampling in local environment
-                tracerProviderBuilder.SetSampler(new AlwaysOnSampler());
-#endif
             })
             .WithLogging(loggerProviderBuilder =>
             {
@@ -126,10 +113,6 @@ public sealed class TelemetryBuilder
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddMeter($"{_appName}.*");
-
-#if LOCAL || DEBUG
-                metricsBuilder.AddConsoleExporter();
-#endif
             });
 
         //enrich all telemetry (requests, dependencies, custom events) with ambient properties
@@ -143,15 +126,8 @@ public sealed class TelemetryBuilder
             }
         });
 
-        //enrich all telemetry (requests, dependencies, custom events) with ambient properties
-        ActivitySource.AddActivityListener(new()
-        {
-            ShouldListenTo = _ => true,
-            ActivityStarted = activity =>
-            {
-                var activityTags = AmbientTelemetryProperties.AmbientProperties.SelectMany(p => p.PropertiesToInject);
-                foreach (var (name, value) in activityTags) activity.SetTag(name, value);
-            }
-        });
+        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
+        // Register exception handling rules
+        _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
     }
 }
