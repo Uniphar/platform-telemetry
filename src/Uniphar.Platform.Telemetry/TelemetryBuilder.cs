@@ -48,10 +48,18 @@ public sealed class TelemetryBuilder
     /// </summary>
     public void Build()
     {
+        // Suppress any environment-based console logging from OpenTelemetry SDK itself
+        Environment.SetEnvironmentVariable("OTEL_LOG_LEVEL", "none");
 
         // Remove all default logging providers (Console, Debug, EventSource) so that
         // application logs no longer write to stdout/stderr. we use app insights for logging, so no need for default providers.
         _builder.Logging.ClearProviders();
+
+        // Ensure no console provider can be added by configuration or third-party libraries
+        _builder.Logging.Configure(options =>
+        {
+            options.ActivityTrackingOptions = ActivityTrackingOptions.None;
+        });
         var resourceBuilder = ResourceBuilder
             .CreateDefault()
             .AddTelemetrySdk()
@@ -61,7 +69,12 @@ public sealed class TelemetryBuilder
         _builder
             .Services
             .AddOpenTelemetry()
-            .UseAzureMonitor(options => options.ConnectionString = appInsightsConnectionString)
+            .UseAzureMonitor(options =>
+            {
+                options.ConnectionString = appInsightsConnectionString;
+                // Disable any diagnostic listeners that might log to console
+                options.DisableOfflineStorage = false;
+            })
             .ConfigureResource(resource =>
             {
                 // Override 'service.instance.id' and 'host.name' resource attributes to ensure telemetry reflects the current pod or machine name.
