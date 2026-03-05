@@ -72,8 +72,6 @@ public sealed class TelemetryBuilder
             .UseAzureMonitor(options =>
             {
                 options.ConnectionString = appInsightsConnectionString;
-                // Disable any diagnostic listeners that might log to console
-                options.DisableOfflineStorage = false;
             })
             .ConfigureResource(resource =>
             {
