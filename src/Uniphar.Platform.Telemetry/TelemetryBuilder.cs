@@ -48,37 +48,26 @@ public sealed class TelemetryBuilder
     /// </summary>
     public void Build()
     {
-        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
-        // Register exception handling rules
-        _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
+        // Suppress any environment-based console logging from OpenTelemetry SDK itself
+        Environment.SetEnvironmentVariable("OTEL_LOG_LEVEL", "none");
 
+        // Remove all default logging providers (Console, Debug, EventSource) so that
+        // application logs no longer write to stdout/stderr. We use Application Insights for logging, so there is no need for the default providers.
+        _builder.Logging.ClearProviders();
 
         var resourceBuilder = ResourceBuilder
             .CreateDefault()
             .AddTelemetrySdk()
             .AddService(_appName);
 
-        // Remove all default logging providers (Console, Debug, EventSource) so that
-        // application logs no longer write to stdout/stderr. This prevents duplicate
-        // data in ContainerLogsV2/ADX — all telemetry is exported directly to
-        // Application Insights via the OpenTelemetry Azure Monitor exporter.
-#if !LOCAL && !DEBUG
-        _builder.Logging.ClearProviders();
-#endif
-
-        _builder.Logging.AddOpenTelemetry(options =>
-        {
-            options.SetResourceBuilder(resourceBuilder);
-            options.IncludeScopes = true;
-            options.IncludeFormattedMessage = true;
-            options.ParseStateValues = true;
-        });
-
         var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"];
         _builder
             .Services
             .AddOpenTelemetry()
-            .UseAzureMonitor(options => options.ConnectionString = appInsightsConnectionString)
+            .UseAzureMonitor(options =>
+            {
+                options.ConnectionString = appInsightsConnectionString;
+            })
             .ConfigureResource(resource =>
             {
                 // Override 'service.instance.id' and 'host.name' resource attributes to ensure telemetry reflects the current pod or machine name.
@@ -115,18 +104,14 @@ public sealed class TelemetryBuilder
                         .AddSource("Azure.*")
                         .AddProcessor(new DependencyTelemetryFilter(DependencyFilterConfiguration));
                 }
-
-#if LOCAL || DEBUG
-                tracerProviderBuilder.AddConsoleExporter();
-                //no sampling in local environment
-                tracerProviderBuilder.SetSampler(new AlwaysOnSampler());
-#endif
             })
-            .WithLogging(loggerProviderBuilder => loggerProviderBuilder
-                .SetResourceBuilder(resourceBuilder)
-                .AddProcessor<AmbientPropertiesLogRecordInjector>()
-                .AddProcessor<ExceptionToCustomEventConverter>()
-            )
+            .WithLogging(loggerProviderBuilder =>
+            {
+                loggerProviderBuilder
+                    .SetResourceBuilder(resourceBuilder)
+                    .AddProcessor<AmbientPropertiesLogRecordInjector>()
+                    .AddProcessor<ExceptionToCustomEventConverter>();
+            })
             .WithMetrics(metricsBuilder =>
             {
                 metricsBuilder
@@ -134,10 +119,6 @@ public sealed class TelemetryBuilder
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddMeter($"{_appName}.*");
-
-#if LOCAL || DEBUG
-                metricsBuilder.AddConsoleExporter();
-#endif
             });
 
         //enrich all telemetry (requests, dependencies, custom events) with ambient properties
@@ -150,5 +131,9 @@ public sealed class TelemetryBuilder
                 foreach (var (name, value) in activityTags) activity.SetTag(name, value);
             }
         });
+
+        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
+        // Register exception handling rules
+        _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
     }
 }
