@@ -1,5 +1,7 @@
 # Uniphar.Platform.Telemetry
 
+## Latest Version: [![Nuget](https://img.shields.io/nuget/vpre/Uniphar.Platform.Telemetry.svg)](https://www.nuget.org/packages/Uniphar.Platform.Telemetry/)
+
 Uniphar.Platform.Telemetry is a .NET library for enhanced telemetry, logging, and metrics collection. It is designed to be used as a NuGet package in .NET applications to provide structured logging and custom event telemetry.
 
 ## Features
