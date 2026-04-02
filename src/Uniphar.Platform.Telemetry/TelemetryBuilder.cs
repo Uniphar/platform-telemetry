@@ -55,11 +55,6 @@ public sealed class TelemetryBuilder
         // application logs no longer write to stdout/stderr. We use Application Insights for logging, so there is no need for the default providers.
         _builder.Logging.ClearProviders();
 
-        var resourceBuilder = ResourceBuilder
-            .CreateDefault()
-            .AddTelemetrySdk()
-            .AddService(_appName);
-
         var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"];
         _builder
             .Services
@@ -71,19 +66,21 @@ public sealed class TelemetryBuilder
             .ConfigureResource(resource =>
             {
                 // Override 'service.instance.id' and 'host.name' resource attributes to ensure telemetry reflects the current pod or machine name.
-                // The default values set earlier by ResourceBuilder use the auto-generated guid to represent the running instance.
+                // The default values set by ResourceBuilder.CreateDefault() use an auto-generated guid for the running instance.
                 var podName = Environment.MachineName;
-                resource.AddAttributes(new Dictionary<string, object>
-                {
-                    ["service.instance.id"] = podName,
-                    ["host.name"] = podName
-                });
+                resource
+                    .AddTelemetrySdk()
+                    .AddService(_appName)
+                    .AddAttributes(new Dictionary<string, object>
+                    {
+                        ["service.instance.id"] = podName,
+                        ["host.name"] = podName
+                    });
             })
             .WithTracing(tracerProviderBuilder =>
             {
                 tracerProviderBuilder
                     .AddSource(_appName)
-                    .SetResourceBuilder(resourceBuilder)
                     .AddAspNetCoreInstrumentation(options =>
                     {
                         options.Filter = httpContext => ShouldSampleRequest(httpContext, PathsToFilterOutStartingWith);
@@ -108,14 +105,12 @@ public sealed class TelemetryBuilder
             .WithLogging(loggerProviderBuilder =>
             {
                 loggerProviderBuilder
-                    .SetResourceBuilder(resourceBuilder)
                     .AddProcessor<AmbientPropertiesLogRecordInjector>()
                     .AddProcessor<ExceptionToCustomEventConverter>();
             })
             .WithMetrics(metricsBuilder =>
             {
                 metricsBuilder
-                    .SetResourceBuilder(resourceBuilder)
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddMeter($"{_appName}.*");
