@@ -26,10 +26,17 @@ public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClien
     public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
     {
         var customProperties = state ?? new Dictionary<string, object>();
-        using (logger.BeginScope(customProperties))
-            //this is how OpenTelemetry tracks custom events in AppInsights
-            //Note that it is logged as a critical event on purpose.
-            //Otherwise, if you use the LogInformation, but LogLevel is set to Error it will not appear in AppInsights.
-            logger.LogCritical(CustomEventAttribute, eventName);
+        var normalizedProperties = customProperties
+            .Select(x => new KeyValuePair<string, string>(
+                x.Key,
+                string.IsNullOrWhiteSpace(x.Value.ToString()) ? "n/a" : x.Value.ToString()!))
+            .ToArray();
+
+        using var _ = AmbientTelemetryProperties.Initialize(normalizedProperties);
+
+        //this is how OpenTelemetry tracks custom events in AppInsights
+        //Note that it is logged as a critical event on purpose.
+        //Otherwise, if you use the LogInformation, but LogLevel is set to Error it will not appear in AppInsights.
+        logger.LogCritical(CustomEventAttribute, eventName);
     }
 }
