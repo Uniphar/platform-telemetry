@@ -83,6 +83,63 @@ public class ExceptionToCustomEventConverterTests
     }
 }
 
+[TestClass]
+[TestCategory("Integration")]
+public class ExceptionToCustomEventConverterIntegrationTests
+{
+    [TestMethod]
+    public void OnEnd_ShouldEmitCustomEventWithExceptionProperty_WhenUsingRealClient()
+    {
+        // Arrange – real CustomEventTelemetryClient so bugs in TrackEvent break this test
+        var customEventExporter = new InMemoryLogRecordExporter();
+        var customEventLoggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.AddOpenTelemetry(options =>
+            {
+                options.AddProcessor(new AmbientPropertiesLogRecordInjector());
+                options.AddProcessor(new SimpleLogRecordExportProcessor(customEventExporter));
+            });
+        });
+        var realClient = new CustomEventTelemetryClient(
+            customEventLoggerFactory.CreateLogger<CustomEventTelemetryClient>());
+
+        var processor = CreateProcessorFromRegisteredRules(realClient);
+        var appLogger = LoggerFactory.Create(builder =>
+        {
+            builder.AddOpenTelemetry(options => options.AddProcessor(processor));
+        }).CreateLogger<ExceptionToCustomEventConverterIntegrationTests>();
+
+        var exception = new IOException("The process cannot access the file 'C:\\Temp\\test.txt' because it is being used by another process.");
+
+        // Act
+        appLogger.LogError(exception, "Error while moving file");
+
+        // Assert – custom event must be a LogLevel.Critical with the exception message as an attribute
+        var customEvent = customEventExporter.ExportedLogs.Single();
+        Assert.AreEqual(LogLevel.Critical, customEvent.LogLevel);
+        Assert.IsNotNull(customEvent.Attributes);
+        Assert.IsTrue(
+            customEvent.Attributes.Any(x => x.Key == "Exception" && x.Value?.ToString()!.Contains(exception.Message) == true),
+            $"Expected 'Exception' attribute containing the exception message. Actual attributes: {string.Join(", ", customEvent.Attributes.Select(x => $"{x.Key}={x.Value}"))}");
+    }
+
+    private static ExceptionToCustomEventConverter CreateProcessorFromRegisteredRules(ICustomEventTelemetryClient client)
+    {
+        var appBuilder = Host.CreateApplicationBuilder();
+        appBuilder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"] = "InstrumentationKey=00000000-0000-0000-0000-000000000000";
+        appBuilder
+            .RegisterOpenTelemetry("test-app")
+            .WithExceptionsFilters(TelemetryExceptionHandlingRulesFilter.Rules)
+            .WithDependencyFilter(DependencyFilterConfiguration.Default)
+            .Build();
+
+        using var host = appBuilder.Build();
+        var registeredRules = host.Services.GetRequiredService<IEnumerable<ExceptionHandlingRule>>();
+
+        return new ExceptionToCustomEventConverter(registeredRules, client);
+    }
+}
+
 internal static class TelemetryExceptionHandlingRulesFilter
 {
     internal static IEnumerable<ExceptionHandlingRule> Rules =>

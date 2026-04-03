@@ -21,10 +21,7 @@ public class CustomEventTelemetryClientTests
         });
         var logger = loggerFactory.CreateLogger<CustomEventTelemetryClient>();
         var sut = new CustomEventTelemetryClient(logger);
-        var state = new Dictionary<string, object>
-        {
-            ["reason"] = "error",
-        };
+        var state = new Dictionary<string, object> { ["reason"] = "error" };
 
         // Act
         sut.TrackEvent("MyCustomEvent", state);
@@ -54,10 +51,9 @@ public class CustomEventTelemetryClientTests
         var loggerFactory = LoggerFactory.Create(builder => builder.AddOpenTelemetry());
         var logger = loggerFactory.CreateLogger<CustomEventTelemetryClient>();
         var sut = new CustomEventTelemetryClient(logger);
-        var state = new Dictionary<string, object> { ["reason"] = "error" };
 
         // Act
-        sut.TrackEvent("MyCustomEvent", state);
+        sut.TrackEvent("MyCustomEvent", new Dictionary<string, object> { ["reason"] = "error" });
 
         // Assert
         activity.Tags.Should().Contain(t => t.Key == "reason" && t.Value == "error");
