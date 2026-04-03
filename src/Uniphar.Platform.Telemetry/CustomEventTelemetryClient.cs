@@ -29,10 +29,14 @@ public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClien
         var normalizedProperties = customProperties
             .Select(x => new KeyValuePair<string, string>(
                 x.Key,
-                string.IsNullOrWhiteSpace(x.Value.ToString()) ? "n/a" : x.Value.ToString()!))
+                x.Value == null ? "n/a" : x.Value.ToString()!))
             .ToArray();
 
         using var _ = AmbientTelemetryProperties.Initialize(normalizedProperties);
+
+        // fallback
+        foreach (var (key, value) in normalizedProperties)
+            Activity.Current?.SetTag(key, value);
 
         //this is how OpenTelemetry tracks custom events in AppInsights
         //Note that it is logged as a critical event on purpose.

@@ -1,46 +1,55 @@
-﻿namespace Uniphar.Platform.Telemetry.Tests;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+namespace Uniphar.Platform.Telemetry.Tests;
 
 [TestClass]
 [TestCategory("Unit")]
 public class ExceptionToCustomEventConverterTests
 {
-    [TestMethod]
-    public void OnEnd_ShouldSendCustomEvent_ForFileLockedIOException()
-    {
-        // Arrange
-        var exception = new IOException("The process cannot access the file 'C:\\Temp\\test.txt' because it is being used by another process.");
+    private Mock<ICustomEventTelemetryClient> _mockTelemetryClient = null!;
+    private InMemoryLogRecordExporter _logRecordExporter = null!;
+    private ILogger<ExceptionToCustomEventConverterTests> _logger = null!;
 
-        var mockTelemetryClient = new Mock<ICustomEventTelemetryClient>();
-        var processor = new ExceptionToCustomEventConverter(new List<ExceptionHandlingRule>
-            {
-                new(
-                    logRecord => logRecord.Exception is IOException &&
-                                 logRecord.Exception.Message.Contains("being used by another process"),
-                    (logRecord, client) => client.TrackEvent("IoLock", new() { ["Exception"] = logRecord.Exception?.Message ?? string.Empty })
-                )
-            },
-            mockTelemetryClient.Object);
-        var logRecordExporter = new InMemoryLogRecordExporter();
+    [TestInitialize]
+    public void Setup()
+    {
+        _mockTelemetryClient = new Mock<ICustomEventTelemetryClient>();
+        _logRecordExporter = new InMemoryLogRecordExporter();
+        var processor = CreateProcessorFromRegisteredRules(_mockTelemetryClient.Object);
 
         var loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.AddOpenTelemetry(options =>
             {
                 options.AddProcessor(processor);
-                options.AddProcessor(new SimpleLogRecordExportProcessor(logRecordExporter));
+                options.AddProcessor(new SimpleLogRecordExportProcessor(_logRecordExporter));
             });
         });
-        var logger = loggerFactory.CreateLogger<ExceptionToCustomEventConverterTests>();
+        _logger = loggerFactory.CreateLogger<ExceptionToCustomEventConverterTests>();
+    }
+
+    [TestMethod]
+    public void OnEnd_ShouldSendCustomEvent_ForFileLockedIOException()
+    {
+        // Arrange
+        var exception = new IOException("The process cannot access the file 'C:\\Temp\\test.txt' because it is being used by another process.");
+
+        Dictionary<string, object>? capturedState = null;
+        _mockTelemetryClient
+            .Setup(x => x.TrackEvent(It.IsAny<string>(), It.IsAny<Dictionary<string, object>>()))
+            .Callback<string, Dictionary<string, object>>((_, state) => capturedState = state);
 
         // Act
-        logger.LogError(exception, "Error while moving file");
+        _logger.LogError(exception, "Error while moving file");
 
         // Assert
-        mockTelemetryClient.Verify(x => x.TrackEvent("IoLock",
-                It.Is<Dictionary<string, object>>(logRecord => logRecord["Exception"].ToString()!.Contains(exception.Message))),
-            Times.Once);
+        _mockTelemetryClient.Verify(x => x.TrackEvent("IoLock", It.IsAny<Dictionary<string, object>>()), Times.Once);
 
-        Assert.IsFalse(logRecordExporter.ExportedLogs.Any(log => log.LogLevel >= LogLevel.Error));
+        Assert.IsNotNull(capturedState);
+        Assert.IsTrue(capturedState["Exception"].ToString()!.Contains(exception.Message));
+
+        Assert.IsFalse(_logRecordExporter.ExportedLogs.Any(log => log.LogLevel >= LogLevel.Error));
     }
 
     [TestMethod]
@@ -49,35 +58,41 @@ public class ExceptionToCustomEventConverterTests
         // Arrange
         var exception = new Exception("Some other error");
 
-        var mockTelemetryClient = new Mock<ICustomEventTelemetryClient>();
-        var processor = new ExceptionToCustomEventConverter(new List<ExceptionHandlingRule>
-            {
-                new(
-                    logRecord => logRecord.Exception is IOException &&
-                                 logRecord.Exception.Message.Contains("being used by another process"),
-                    (logRecord, client) => client.TrackEvent("IoLock", new() { ["Exception"] = logRecord.Exception?.Message ?? string.Empty })
-                )
-            },
-            mockTelemetryClient.Object);
-        var logRecordExporter = new InMemoryLogRecordExporter();
-
-        var loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder.AddOpenTelemetry(options =>
-            {
-                options.AddProcessor(processor);
-                options.AddProcessor(new SimpleLogRecordExportProcessor(logRecordExporter));
-            });
-        });
-        var logger = loggerFactory.CreateLogger<ExceptionToCustomEventConverterTests>();
-
         // Act
-        logger.LogError(exception, "Error while moving file");
+        _logger.LogError(exception, "Error while moving file");
 
         // Assert
-        mockTelemetryClient.Verify(x => x.TrackEvent(It.IsAny<string>(), It.IsAny<Dictionary<string, object>>()), Times.Never);
-        Assert.IsTrue(logRecordExporter.ExportedLogs.Any(log => log.Exception == exception));
+        _mockTelemetryClient.Verify(x => x.TrackEvent(It.IsAny<string>(), It.IsAny<Dictionary<string, object>>()), Times.Never);
+        Assert.IsTrue(_logRecordExporter.ExportedLogs.Any(log => log.Exception == exception));
     }
+
+    private static ExceptionToCustomEventConverter CreateProcessorFromRegisteredRules(ICustomEventTelemetryClient client)
+    {
+        var appBuilder = Host.CreateApplicationBuilder();
+        appBuilder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"] = "InstrumentationKey=00000000-0000-0000-0000-000000000000";
+        appBuilder
+            .RegisterOpenTelemetry("test-app")
+            .WithExceptionsFilters(TelemetryExceptionHandlingRulesFilter.Rules)
+            .WithDependencyFilter(DependencyFilterConfiguration.Default)
+            .Build();
+
+        using var host = appBuilder.Build();
+        var registeredRules = host.Services.GetRequiredService<IEnumerable<ExceptionHandlingRule>>();
+
+        return new ExceptionToCustomEventConverter(registeredRules, client);
+    }
+}
+
+internal static class TelemetryExceptionHandlingRulesFilter
+{
+    internal static IEnumerable<ExceptionHandlingRule> Rules =>
+    [
+        new(
+            logRecord => logRecord.Exception is IOException &&
+                         logRecord.Exception.Message.Contains("being used by another process"),
+            (logRecord, client) => client.TrackEvent("IoLock", new() { ["Exception"] = logRecord.Exception?.Message ?? string.Empty })
+        )
+    ];
 }
 
 public class InMemoryLogRecordExporter : BaseExporter<LogRecord>
