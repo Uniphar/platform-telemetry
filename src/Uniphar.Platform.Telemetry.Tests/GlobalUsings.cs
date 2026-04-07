@@ -3,6 +3,7 @@ global using Microsoft.VisualStudio.TestTools.UnitTesting;
 global using Moq;
 global using OpenTelemetry;
 global using OpenTelemetry.Logs;
+global using System.Diagnostics;
 global using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 [assembly: Parallelize(Scope = ExecutionScope.MethodLevel)]
