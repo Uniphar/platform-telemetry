@@ -48,8 +48,11 @@ public class ExceptionToCustomEventConverterTests
 
         Assert.IsNotNull(capturedState);
         Assert.IsTrue(capturedState["Exception"].ToString()!.Contains(exception.Message));
-
-        Assert.IsFalse(_logRecordExporter.ExportedLogs.Any(log => log.LogLevel >= LogLevel.Error));
+        // make sure it is only one
+        Assert.IsTrue(_logRecordExporter.ExportedLogs.Count == 1);
+        var exportedLog = _logRecordExporter.ExportedLogs.Single();
+        // no log level defined as the processor will convert the log to custom event
+        Assert.AreEqual(LogLevel.None, exportedLog.LogLevel);
     }
 
     [TestMethod]
