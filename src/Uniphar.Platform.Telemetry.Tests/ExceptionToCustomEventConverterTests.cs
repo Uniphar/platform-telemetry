@@ -49,7 +49,7 @@ public class ExceptionToCustomEventConverterTests
         Assert.IsNotNull(capturedState);
         Assert.IsTrue(capturedState["Exception"].ToString()!.Contains(exception.Message));
 
-        Assert.IsFalse(_logRecordExporter.ExportedLogs.Any(log => log.LogLevel >= LogLevel.Error));
+        Assert.IsTrue(_logRecordExporter.ExportedLogs.All(log => log.LogLevel == LogLevel.None));
     }
 
     [TestMethod]
