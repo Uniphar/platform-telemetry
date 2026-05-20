@@ -62,6 +62,9 @@ public sealed class TelemetryBuilder
             .UseAzureMonitor(options =>
             {
                 options.ConnectionString = appInsightsConnectionString;
+                //NOTE: this is important for Azure alerts that rely on AppInsight telemetry.
+                // Disable adaptive sampling and keep 100% of telemetry
+                options.SamplingRatio = 1.0f;
             })
             .ConfigureResource(resource =>
             {
