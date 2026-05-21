@@ -62,9 +62,11 @@ public sealed class TelemetryBuilder
             .UseAzureMonitor(options =>
             {
                 options.ConnectionString = appInsightsConnectionString;
-                //NOTE: this is important for Azure alerts that rely on AppInsight telemetry.
-                // Disable adaptive sampling and keep 100% of telemetry
+                // NOTE: Azure.Monitor.OpenTelemetry.AspNetCore v1.5.0 changed the default sampler
+                // to RateLimitedSampler (5 traces/sec). Both options are required to restore 100% sampling:
+                // See: https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/monitor/Azure.Monitor.OpenTelemetry.AspNetCore/CHANGELOG.md
                 options.SamplingRatio = 1.0f;
+                options.TracesPerSecond = null;
             })
             .ConfigureResource(resource =>
             {
