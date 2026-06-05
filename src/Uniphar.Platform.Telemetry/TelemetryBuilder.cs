@@ -68,7 +68,7 @@ public sealed class TelemetryBuilder
                 options.SamplingRatio = 1.0f;
                 options.TracesPerSecond = null;
 
-                // Disable the built-in TraceBasedLogsSampler to prevent it from dropping any logs based on trace sampling decisions,
+                // Disable the built-in TraceBasedLogsSampler to prevent it from dropping any logs based on trace sampling decisions.
                 options.EnableTraceBasedLogsSampler = false;
             })
             .ConfigureResource(resource =>
