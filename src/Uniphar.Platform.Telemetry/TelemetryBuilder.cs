@@ -67,6 +67,9 @@ public sealed class TelemetryBuilder
                 // See: https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/monitor/Azure.Monitor.OpenTelemetry.AspNetCore/CHANGELOG.md
                 options.SamplingRatio = 1.0f;
                 options.TracesPerSecond = null;
+
+                // Disable the built-in TraceBasedLogsSampler to prevent it from dropping any logs based on trace sampling decisions,
+                options.EnableTraceBasedLogsSampler = false;
             })
             .ConfigureResource(resource =>
             {
