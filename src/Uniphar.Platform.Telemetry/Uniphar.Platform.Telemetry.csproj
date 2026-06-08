@@ -23,17 +23,16 @@
   </ItemGroup>
   <ItemGroup>
     <!-- START OpenTelemetry-->
-    <!--for aspnet core api, to filter /health, AddAspNetCoreInstrumentation-->
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="*" />
-    <!--for http traffic, AddHttpClientInstrumentation-->
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="*" />
-    <!--for the runtime itself , AddRuntimeInstrumentation-->
+    <!--for the runtime itself, AddRuntimeInstrumentation-->
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="*" />
+    <!--local debug, to send it to console-->
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="*" />
     <!--to sent it to app insights-->
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="*" />
-    <!--local debug, to sent it to console-->
-    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="*" />
-    <!--azure app insight-->
+    <!--azure app insights - already includes AspNetCore and Http instrumentation internally;
+        do NOT add OpenTelemetry.Instrumentation.AspNetCore or OpenTelemetry.Instrumentation.Http
+        This may cause missing request and dependency telemetry.
+        See: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/monitor.opentelemetry.aspnetcore-readme#troubleshooting -->
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="*" />
     <!-- END OpenTelemetry-->
   </ItemGroup>

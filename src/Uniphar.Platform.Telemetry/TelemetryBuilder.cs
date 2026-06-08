@@ -16,6 +16,7 @@ public sealed class TelemetryBuilder
         ExceptionHandlingRules = [];
     }
 
+    internal bool EnableDiagnosticLogging { get; set; }
     internal IEnumerable<ExceptionHandlingRule> ExceptionHandlingRules { get; set; }
     internal IEnumerable<string> PathsToFilterOutStartingWith { get; set; }
     internal DependencyFilterConfiguration? DependencyFilterConfiguration { get; set; }
@@ -135,7 +136,10 @@ public sealed class TelemetryBuilder
             }
         });
 
-        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>();
+        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>(sp =>
+            new CustomEventTelemetryClient(
+                sp.GetRequiredService<ILogger<CustomEventTelemetryClient>>(),
+                EnableDiagnosticLogging));
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
     }

@@ -23,7 +23,16 @@ public static class TelemetryExtensions
     extension(TelemetryBuilder telemetryBuilder)
     {
         /// <summary>
-        ///     Configures exception handling rules for telemetry.
+        ///     Enables diagnostic logging of custom events to stderr (container logs).
+        ///     Use to cross-check whether TrackEvent was called when events are missing in AppInsights.
+        /// </summary>
+        public TelemetryBuilder WithDiagnosticLogging(bool enabled = false)
+        {
+            telemetryBuilder.EnableDiagnosticLogging = enabled;
+            return telemetryBuilder;
+        }
+
+        /// <summary>
         /// </summary>
         /// <param name="exceptionHandlingRules">exception handling rules</param>
         public TelemetryBuilder WithExceptionsFilters(IEnumerable<ExceptionHandlingRule> exceptionHandlingRules)
