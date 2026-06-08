@@ -43,7 +43,11 @@ public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClien
         // This to cross-check: if the line appears in container logs but not in AppInsights
         if (diagnosticLogging)
         {
-            var stateString = string.Join(", ", normalizedProperties.Select(x => $"{x.Key}={x.Value}"));
+            // Flatten all ambient scopes, deduplicate by key (first occurrence wins, innermost scope is first).
+            var stateString = string.Join(", ", AmbientTelemetryProperties.AmbientProperties
+                .SelectMany(x => x.PropertiesToInject)
+                .GroupBy(x => x.Key)
+                .Select(g => $"{g.Key}={g.First().Value}"));
             Console.Error.WriteLine($"[TrackEvent] {DateTimeOffset.UtcNow:O} {eventName} {{{stateString}}}");
         }
 
