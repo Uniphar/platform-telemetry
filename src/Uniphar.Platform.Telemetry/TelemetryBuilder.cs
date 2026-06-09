@@ -52,6 +52,12 @@ public sealed class TelemetryBuilder
         // Suppress any environment-based console logging from OpenTelemetry SDK itself
         Environment.SetEnvironmentVariable("OTEL_LOG_LEVEL", "none");
 
+        // Adjust BatchExportProcessor defaults to reduce the chance of the telemetry drop/data-loss.
+        // https://github.com/open-telemetry/opentelemetry-dotnet/blob/main/src/OpenTelemetry/BatchExportProcessor.cs#L109
+        SetEnvDefault("OTEL_BSP_SCHEDULE_DELAY", "1000"); // default 5000 ms
+        SetEnvDefault("OTEL_BSP_MAX_QUEUE_SIZE", "4096"); // default 2048
+        SetEnvDefault("OTEL_BLRP_MAX_QUEUE_SIZE", "4096"); //default 2048
+
         // Remove all default logging providers (Console, Debug, EventSource) so that
         // application logs no longer write to stdout/stderr. We use Application Insights for logging, so there is no need for the default providers.
         _builder.Logging.ClearProviders();
@@ -69,7 +75,8 @@ public sealed class TelemetryBuilder
                 options.SamplingRatio = 1.0f;
                 options.TracesPerSecond = null;
 
-                // Disable the built-in TraceBasedLogsSampler to prevent it from dropping any logs based on trace sampling decisions.
+                // Disable the built-in TraceBasedLogsSampler to prevent it from dropping any logs based on trace sampling decisions.
+
                 options.EnableTraceBasedLogsSampler = false;
             })
             .ConfigureResource(resource =>
@@ -142,5 +149,17 @@ public sealed class TelemetryBuilder
                 EnableDiagnosticLogging));
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
+
+        // Ensure the host gives the OpenTelemetry BatchExportProcessors enough time to flush
+        _builder.Services.PostConfigure<HostOptions>(opts =>
+        {
+            opts.ShutdownTimeout = TimeSpan.FromSeconds(15);
+        });
+    }
+
+    private static void SetEnvDefault(string key, string value)
+    {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
+            Environment.SetEnvironmentVariable(key, value);
     }
 }
