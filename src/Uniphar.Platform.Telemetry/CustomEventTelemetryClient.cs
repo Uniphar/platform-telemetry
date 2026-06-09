@@ -25,35 +25,43 @@ public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClien
     /// </summary>
     public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
     {
-        var customProperties = state ?? new Dictionary<string, object>();
-        var normalizedProperties = customProperties
-            .Select(x => new KeyValuePair<string, string>(
-                x.Key,
-                x.Value == null ? "n/a" : x.Value.ToString()!))
-            .ToArray();
-
-        using var _ = AmbientTelemetryProperties.Initialize(normalizedProperties);
-
-        // fallback
-        foreach (var (key, value) in normalizedProperties)
-            Activity.Current?.SetTag(key, value);
-
-        // Write directly to stderr so the event is always visible in container logs,
-        // independent of the AppInsights pipeline.
-        // This to cross-check: if the line appears in container logs but not in AppInsights
-        if (diagnosticLogging)
+        try
         {
-            // Flatten all ambient scopes, deduplicate by key (first occurrence wins, innermost scope is first).
-            var stateString = string.Join(", ", AmbientTelemetryProperties.AmbientProperties
-                .SelectMany(x => x.PropertiesToInject)
-                .GroupBy(x => x.Key)
-                .Select(g => $"{g.Key}={g.First().Value}"));
-            Console.Error.WriteLine($"[TrackEvent] {DateTimeOffset.UtcNow:O} {eventName} {{{stateString}}}");
-        }
+            var customProperties = state ?? new Dictionary<string, object>();
+            var normalizedProperties = customProperties
+                .Select(x => new KeyValuePair<string, string>(
+                    x.Key,
+                    x.Value == null ? "n/a" : x.Value.ToString()!))
+                .ToArray();
 
-        //this is how OpenTelemetry tracks custom events in AppInsights
-        //Note that it is logged as a critical event on purpose.
-        //Otherwise, if you use the LogInformation, but LogLevel is set to Error it will not appear in AppInsights.
-        logger.LogCritical(CustomEventAttribute, eventName);
+            using var _ = AmbientTelemetryProperties.Initialize(normalizedProperties);
+
+            // fallback
+            foreach (var (key, value) in normalizedProperties)
+                Activity.Current?.SetTag(key, value);
+
+            // Write directly to stderr so the event is always visible in container logs,
+            // independent of the AppInsights pipeline.
+            // This to cross-check: if the line appears in container logs but not in AppInsights
+            if (diagnosticLogging)
+            {
+                // Flatten all ambient scopes, deduplicate by key (first occurrence wins, innermost scope is first).
+                var stateString = string.Join(", ", AmbientTelemetryProperties.AmbientProperties
+                    .SelectMany(x => x.PropertiesToInject)
+                    .GroupBy(x => x.Key)
+                    .Select(g => $"{g.Key}={g.First().Value}"));
+                Console.Error.WriteLine($"[TrackEvent] {DateTimeOffset.UtcNow:O} {eventName} {{{stateString}}}");
+            }
+
+            //this is how OpenTelemetry tracks custom events in AppInsights
+            //Note that it is logged as a critical event on purpose.
+            //Otherwise, if you use the LogInformation, but LogLevel is set to Error it will not appear in AppInsights.
+            logger.LogCritical(CustomEventAttribute, eventName);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[TrackEventError] {DateTimeOffset.UtcNow:O} failed to track '{eventName}': {ex}");
+            throw;
+        }
     }
 }
