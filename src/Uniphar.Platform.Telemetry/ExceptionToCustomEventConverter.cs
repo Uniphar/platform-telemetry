@@ -24,7 +24,7 @@ internal sealed class ExceptionToCustomEventConverter(
             rule.Handler(logRecord, eventTelemetryClient);
             logRecord.Attributes = [];
             logRecord.Body = string.Empty;
-            logRecord.FormattedMessage = string.Empty;
+            logRecord.FormattedMessage = "[converted to custom event]";
             logRecord.CategoryName = string.Empty;
             logRecord.Exception = null;
             logRecord.LogLevel = LogLevel.None;
