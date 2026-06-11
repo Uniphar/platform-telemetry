@@ -53,6 +53,8 @@ public class ExceptionToCustomEventConverterTests
         var exportedLog = _logRecordExporter.ExportedLogs.Single();
         // no log level defined as the processor will convert the log to custom event
         Assert.AreEqual(LogLevel.None, exportedLog.LogLevel);
+        Assert.IsNull(exportedLog.Exception);
+        Assert.AreEqual("[converted to custom event]", exportedLog.FormattedMessage);
     }
 
     [TestMethod]
