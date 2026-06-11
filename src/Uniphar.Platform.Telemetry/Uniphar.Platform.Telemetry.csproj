@@ -25,13 +25,11 @@
     <!-- START OpenTelemetry-->
     <!--for the runtime itself, AddRuntimeInstrumentation-->
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="*" />
-    <!--local debug, to send it to console-->
-    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="*" />
-    <!--to sent it to app insights-->
-    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="*" />
-    <!--azure app insights - already includes AspNetCore and Http instrumentation internally;
-        do NOT add OpenTelemetry.Instrumentation.AspNetCore or OpenTelemetry.Instrumentation.Http
-        This may cause missing request and dependency telemetry.
+    <!--azure app insights - already includes AspNetCore and Http instrumentation internally,
+        and pulls in Azure.Monitor.OpenTelemetry.Exporter as a transitive dependency at the
+        version it was tested with. Do NOT add the Exporter package directly (causes version
+        mismatch) and do NOT add OpenTelemetry.Instrumentation.AspNetCore or
+        OpenTelemetry.Instrumentation.Http (causes missing request and dependency telemetry).
         See: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/monitor.opentelemetry.aspnetcore-readme#troubleshooting -->
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="*" />
     <!-- END OpenTelemetry-->
