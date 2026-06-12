@@ -25,6 +25,7 @@
     <!-- START OpenTelemetry-->
     <!--for the runtime itself, AddRuntimeInstrumentation-->
     <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="*" />
+	<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="*" />
     <!--azure app insights - already includes AspNetCore and Http instrumentation internally,
         and pulls in Azure.Monitor.OpenTelemetry.Exporter as a transitive dependency at the
         version it was tested with. Do NOT add the Exporter package directly (causes version

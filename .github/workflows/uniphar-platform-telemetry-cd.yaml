@@ -48,7 +48,7 @@ jobs:
           # Match and extract current version
           if ($content -match '<Version>(.*?)<\/Version>') {
               $currentVersion = $Matches[1]
-              $newVersion = "$currentVersion.$runNumber"
+              $newVersion = "$currentVersion.$runNumber-pre1"
               $content = $content -replace '<Version>(.*?)<\/Version>', "<Version>$newVersion</Version>"
               Set-Content $csprojPath $content
               Write-Output "Updated version to $newVersion in $csprojPath"
