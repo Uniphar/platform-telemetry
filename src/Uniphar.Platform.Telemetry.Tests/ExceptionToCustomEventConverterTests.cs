@@ -96,17 +96,13 @@ public class ExceptionToCustomEventConverterIntegrationTests
     public void OnEnd_ShouldEmitCustomEventWithExceptionProperty_WhenUsingRealClient()
     {
         // Arrange – real CustomEventTelemetryClient so bugs in TrackEvent break this test
-        var customEventExporter = new InMemoryLogRecordExporter();
-        var customEventLoggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder.AddOpenTelemetry(options =>
-            {
-                options.AddProcessor(new AmbientPropertiesLogRecordInjector());
-                options.AddProcessor(new SimpleLogRecordExportProcessor(customEventExporter));
-            });
-        });
-        var realClient = new CustomEventTelemetryClient(
-            customEventLoggerFactory.CreateLogger<CustomEventTelemetryClient>());
+        var exportedActivities = new List<Activity>();
+        using var tracerProvider = Sdk.CreateTracerProviderBuilder()
+            .AddSource("Uniphar.Platform.Telemetry.CustomEvents")
+            .AddInMemoryExporter(exportedActivities)
+            .Build();
+
+        var realClient = new CustomEventTelemetryClient();
 
         var processor = CreateProcessorFromRegisteredRules(realClient);
         var appLogger = LoggerFactory.Create(builder =>
@@ -119,13 +115,15 @@ public class ExceptionToCustomEventConverterIntegrationTests
         // Act
         appLogger.LogError(exception, "Error while moving file");
 
-        // Assert – custom event must be a LogLevel.Critical with the exception message as an attribute
-        var customEvent = customEventExporter.ExportedLogs.Single();
-        Assert.AreEqual(LogLevel.Critical, customEvent.LogLevel);
-        Assert.IsNotNull(customEvent.Attributes);
+        // Force flush to ensure spans are exported
+        tracerProvider.ForceFlush();
+
+        // Assert – custom event must be an Activity span with the exception message as a tag
+        var span = exportedActivities.Single(a => a.Source.Name == "Uniphar.Platform.Telemetry.CustomEvents" && a.DisplayName == "IoLock");
+        Assert.AreEqual("IoLock", span.DisplayName);
         Assert.IsTrue(
-            customEvent.Attributes.Any(x => x.Key == "Exception" && x.Value?.ToString()!.Contains(exception.Message) == true),
-            $"Expected 'Exception' attribute containing the exception message. Actual attributes: {string.Join(", ", customEvent.Attributes.Select(x => $"{x.Key}={x.Value}"))}");
+            span.Tags.Any(t => t.Key == "Exception" && t.Value!.Contains(exception.Message)),
+            $"Expected 'Exception' tag containing the exception message. Actual tags: {string.Join(", ", span.Tags.Select(t => $"{t.Key}={t.Value}"))}");
     }
 
     private static ExceptionToCustomEventConverter CreateProcessorFromRegisteredRules(ICustomEventTelemetryClient client)

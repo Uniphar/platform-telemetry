@@ -98,6 +98,7 @@ public sealed class TelemetryBuilder
             {
                 tracerProviderBuilder
                     .AddSource(_appName)
+                    .AddSource("Uniphar.Platform.Telemetry.CustomEvents")
                     .AddAspNetCoreInstrumentation(options =>
                     {
                         options.Filter = httpContext => ShouldSampleRequest(httpContext, PathsToFilterOutStartingWith);
@@ -144,9 +145,8 @@ public sealed class TelemetryBuilder
             }
         });
 
-        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>(sp =>
+        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>(_ =>
             new CustomEventTelemetryClient(
-                sp.GetRequiredService<ILogger<CustomEventTelemetryClient>>(),
                 EnableDiagnosticLogging));
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
