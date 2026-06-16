@@ -65,20 +65,20 @@ public sealed class TelemetryBuilder
         var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"];
         _builder
             .Services
-            .AddOpenTelemetry()           
-            //.UseAzureMonitor(options => //use env for sampling?
-            //{
-            //    options.ConnectionString = appInsightsConnectionString;
-            //    // NOTE: Azure.Monitor.OpenTelemetry.AspNetCore v1.5.0 changed the default sampler
-            //    // to RateLimitedSampler (5 traces/sec). Both options are required to restore 100% sampling:
-            //    // See: https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/monitor/Azure.Monitor.OpenTelemetry.AspNetCore/CHANGELOG.md
-            //    options.SamplingRatio = 1.0f;
-            //    options.TracesPerSecond = null;
+            .AddOpenTelemetry()
+            .UseAzureMonitor(options =>
+            {
+                options.ConnectionString = appInsightsConnectionString;
+                // NOTE: Azure.Monitor.OpenTelemetry.AspNetCore v1.5.0 changed the default sampler
+                // to RateLimitedSampler (5 traces/sec). Both options are required to restore 100% sampling:
+                // See: https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/monitor/Azure.Monitor.OpenTelemetry.AspNetCore/CHANGELOG.md
+                options.SamplingRatio = 1.0f;
+                options.TracesPerSecond = null;
 
-            //    // Disable the built-in TraceBasedLogsSampler to prevent it from dropping any logs based on trace sampling decisions.
+                // Disable the built-in TraceBasedLogsSampler to prevent it from dropping any logs based on trace sampling decisions.
 
-            //    options.EnableTraceBasedLogsSampler = false;
-            //})
+                options.EnableTraceBasedLogsSampler = false;
+            })
             .UseOtlpExporter()
             .ConfigureResource(resource =>
             {
