@@ -172,9 +172,26 @@ public sealed class TelemetryBuilder
             }
         });
 
-        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>(_ =>
-            new CustomEventTelemetryClient(
-                EnableDiagnosticLogging));
+        _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>(sp =>
+        {
+            // Auto-select emit mode based on which exporters are configured:
+            // Azure Monitor only  -> LogRecord (maps to customEvents/traces table)
+            // OTLP only           -> ActivitySpan (distributed tracing backends)
+            // Both                -> Both signals emitted
+            var emitMode = (useAzureMonitor, useOtlp) switch
+            {
+                (true, true) => CustomEventEmitMode.Both,
+                (true, false) => CustomEventEmitMode.Both,
+                (false, true) => CustomEventEmitMode.ActivitySpan,
+                _ => CustomEventEmitMode.ActivitySpan
+            };
+
+            var logger = sp.GetRequiredService<ILogger<CustomEventTelemetryClient>>();
+            return new CustomEventTelemetryClient(
+                EnableDiagnosticLogging,
+                emitMode,
+                logger);
+        });
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
 

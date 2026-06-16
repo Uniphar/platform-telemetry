@@ -14,11 +14,32 @@ public interface ICustomEventTelemetryClient
 }
 
 /// <summary>
-///     Service to track custom events via OpenTelemetry Activity spans.
+///     Service to track custom events via OpenTelemetry.
+///     Emits events as activity spans, structured log records, or both depending on <see cref="CustomEventEmitMode" />.
 /// </summary>
-public sealed class CustomEventTelemetryClient(bool diagnosticLogging = false) : ICustomEventTelemetryClient
+public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
 {
     internal static readonly ActivitySource CustomEventActivitySource = new("Uniphar.Platform.Telemetry.CustomEvents");
+
+    private readonly bool _diagnosticLogging;
+    private readonly CustomEventEmitMode _emitMode;
+    private readonly ILogger<CustomEventTelemetryClient>? _logger;
+
+    /// <summary>
+    ///     Creates a new instance of <see cref="CustomEventTelemetryClient" />.
+    /// </summary>
+    /// <param name="diagnosticLogging">Write diagnostic messages to stderr.</param>
+    /// <param name="emitMode">Determines which telemetry signals are emitted.</param>
+    /// <param name="logger">Logger used for the <see cref="CustomEventEmitMode.LogRecord" /> path.</param>
+    public CustomEventTelemetryClient(
+        bool diagnosticLogging = false,
+        CustomEventEmitMode emitMode = CustomEventEmitMode.ActivitySpan,
+        ILogger<CustomEventTelemetryClient>? logger = null)
+    {
+        _diagnosticLogging = diagnosticLogging;
+        _emitMode = emitMode;
+        _logger = logger;
+    }
 
     /// <inheritdoc />
     public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
@@ -29,7 +50,12 @@ public sealed class CustomEventTelemetryClient(bool diagnosticLogging = false) :
 
             using var _ = AmbientTelemetryProperties.Initialize(properties);
             LogDiagnostics(eventName);
-            EmitActivitySpan(eventName, properties);
+
+            if (_emitMode.HasFlag(CustomEventEmitMode.ActivitySpan))
+                EmitActivitySpan(eventName, properties);
+
+            if (_emitMode.HasFlag(CustomEventEmitMode.LogRecord))
+                EmitLogRecord(eventName, properties);
         }
         catch (Exception ex)
         {
@@ -45,7 +71,7 @@ public sealed class CustomEventTelemetryClient(bool diagnosticLogging = false) :
 
     private void LogDiagnostics(string eventName)
     {
-        if (!diagnosticLogging) return;
+        if (!_diagnosticLogging) return;
 
         // Flatten all ambient scopes, deduplicate by key (first occurrence wins, innermost scope is first).
         var stateString = string.Join(", ", AmbientTelemetryProperties.AmbientProperties
@@ -71,5 +97,24 @@ public sealed class CustomEventTelemetryClient(bool diagnosticLogging = false) :
         // Inject ambient properties as span tags
         foreach (var (key, value) in AmbientTelemetryProperties.AmbientProperties.SelectMany(p => p.PropertiesToInject))
             activity.SetTag(key, value);
+    }
+
+    private void EmitLogRecord(string eventName, KeyValuePair<string, string>[] properties)
+    {
+        if (_logger is null) return;
+
+        // Merge explicit properties with ambient properties (explicit wins on key collision).
+        var allProperties = properties
+            .Concat(AmbientTelemetryProperties.AmbientProperties
+                .SelectMany(p => p.PropertiesToInject)
+                .Where(a => !properties.Any(p => p.Key == a.Key)))
+            .ToArray();
+
+        // Emit a structured log record that Azure Monitor maps to the traces/customEvents table.
+        // The event.name tag allows Azure Monitor queries to filter on this field.
+        using (_logger.BeginScope(allProperties.ToDictionary(kv => kv.Key, kv => (object)kv.Value)))
+        {
+            _logger.LogInformation("CustomEvent: {EventName}", eventName);
+        }
     }
 }
