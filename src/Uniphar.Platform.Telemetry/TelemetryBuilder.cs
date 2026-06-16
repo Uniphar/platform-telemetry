@@ -66,7 +66,7 @@ public sealed class TelemetryBuilder
         _builder
             .Services
             .AddOpenTelemetry()           
-            //.UseAzureMonitor(options =>
+            //.UseAzureMonitor(options => //use env for sampling?
             //{
             //    options.ConnectionString = appInsightsConnectionString;
             //    // NOTE: Azure.Monitor.OpenTelemetry.AspNetCore v1.5.0 changed the default sampler
@@ -101,6 +101,7 @@ public sealed class TelemetryBuilder
                     .AddSource("Uniphar.Platform.Telemetry.CustomEvents")
                     .AddAspNetCoreInstrumentation(options =>
                     {
+                        options.RecordException = true;
                         options.Filter = httpContext => ShouldSampleRequest(httpContext, PathsToFilterOutStartingWith);
                         //override the display name of the Request activity to be the path with actual values, not the generic route with placeholders
                         options.EnrichWithHttpResponse = (activity, _) =>
