@@ -45,7 +45,7 @@ public class CustomEventTelemetryClientTests
 
         // Assert
         var logEntry = fakeLogger.LatestRecord;
-        logEntry.Level.Should().Be(LogLevel.Information);
+        logEntry.Level.Should().Be(LogLevel.Critical);
         logEntry.Message.Should().Contain("OrderCreated");
     }
 
@@ -99,7 +99,7 @@ public class CustomEventTelemetryClientTests
 
         // Assert - log record emitted
         var logEntry = fakeLogger.LatestRecord;
-        logEntry.Level.Should().Be(LogLevel.Information);
+        logEntry.Level.Should().Be(LogLevel.Critical);
         logEntry.Message.Should().Contain("DualEvent");
     }
 }

@@ -19,6 +19,7 @@ public interface ICustomEventTelemetryClient
 /// </summary>
 public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
 {
+    private const string CustomEventAttribute = "microsoft.custom_event.name";
     internal static readonly ActivitySource CustomEventActivitySource = new("Uniphar.Platform.Telemetry.CustomEvents");
 
     private readonly bool _diagnosticLogging;
@@ -101,20 +102,12 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
 
     private void EmitLogRecord(string eventName, KeyValuePair<string, string>[] properties)
     {
-        if (_logger is null) return;
+        // Azure Monitor CustomEvent uses structured log placeholders:
+        // "{microsoft.custom_event.name} {key1} {key2} ..." — each becomes a CustomEvent property.
+        var template = string.Join(" ", new[] { $"{{{CustomEventAttribute}}}" }.Concat(properties.Select(x => $"{{{x.Key}}}")));
+        var args = new object?[] { eventName }.Concat(properties.Select(x => (object?)x.Value)).ToArray();
 
-        // Merge explicit properties with ambient properties (explicit wins on key collision).
-        var allProperties = properties
-            .Concat(AmbientTelemetryProperties.AmbientProperties
-                .SelectMany(p => p.PropertiesToInject)
-                .Where(a => !properties.Any(p => p.Key == a.Key)))
-            .ToArray();
-
-        // Emit a structured log record that Azure Monitor maps to the traces/customEvents table.
-        // The event.name tag allows Azure Monitor queries to filter on this field.
-        using (_logger.BeginScope(allProperties.ToDictionary(kv => kv.Key, kv => (object)kv.Value)))
-        {
-            _logger.LogInformation("CustomEvent: {EventName}", eventName);
-        }
+        // LogCritical is intentional — lower severities may be filtered out before reaching AppInsights.
+        _logger?.LogCritical(template, args);
     }
 }
