@@ -59,14 +59,27 @@ public sealed class TelemetryBuilder
         SetEnvDefault("OTEL_BLRP_MAX_QUEUE_SIZE", "4096"); //default 2048
 
         // Remove all default logging providers (Console, Debug, EventSource) so that
-        // application logs no longer write to stdout/stderr. We use Application Insights for logging, so there is no need for the default providers.
+        // application logs no longer write to stdout/stderr. Telemetry is exported via the configured exporter(s).
         _builder.Logging.ClearProviders();
 
         var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"];
-        _builder
+        var otlpEndpoint = _builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]
+                           ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+
+        var useAzureMonitor = !string.IsNullOrWhiteSpace(appInsightsConnectionString);
+        var useOtlp = !string.IsNullOrWhiteSpace(otlpEndpoint);
+
+        if (!useAzureMonitor && !useOtlp)
+            throw new InvalidOperationException(
+                "No telemetry exporter configured. Set APPLICATIONINSIGHTS:CONNECTIONSTRING and/or OTEL_EXPORTER_OTLP_ENDPOINT.");
+
+        var otel = _builder
             .Services
-            .AddOpenTelemetry()
-            .UseAzureMonitor(options =>
+            .AddOpenTelemetry();
+
+        if (useAzureMonitor)
+        {
+            otel.UseAzureMonitor(options =>
             {
                 options.ConnectionString = appInsightsConnectionString;
                 // NOTE: Azure.Monitor.OpenTelemetry.AspNetCore v1.5.0 changed the default sampler
@@ -76,10 +89,16 @@ public sealed class TelemetryBuilder
                 options.TracesPerSecond = null;
 
                 // Disable the built-in TraceBasedLogsSampler to prevent it from dropping any logs based on trace sampling decisions.
-
                 options.EnableTraceBasedLogsSampler = false;
-            })
-            .UseOtlpExporter()
+            });
+        }
+
+        if (useOtlp)
+        {
+            otel.UseOtlpExporter();
+        }
+
+        otel
             .ConfigureResource(resource =>
             {
                 // Override 'service.instance.id' and 'host.name' resource attributes to ensure telemetry reflects the current pod or machine name.
@@ -112,6 +131,13 @@ public sealed class TelemetryBuilder
                             activity.SetTag("http.route", path);
                         };
                     });
+
+                // When Azure Monitor is not active, explicitly add HTTP client instrumentation
+                // (the Azure Monitor distro normally registers this automatically).
+                if (!useAzureMonitor)
+                {
+                    tracerProviderBuilder.AddHttpClientInstrumentation();
+                }
 
                 if (DependencyFilterConfiguration is not null)
                 {
