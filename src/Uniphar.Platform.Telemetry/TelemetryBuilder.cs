@@ -62,7 +62,7 @@ public sealed class TelemetryBuilder
         // application logs no longer write to stdout/stderr. Telemetry is exported via the configured exporter(s).
         _builder.Logging.ClearProviders();
 
-        var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"];
+        var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS:CONNECTION_STRING"];
         var otlpEndpoint = _builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]
                            ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
 
@@ -71,7 +71,7 @@ public sealed class TelemetryBuilder
 
         if (!useAzureMonitor && !useOtlp)
             throw new InvalidOperationException(
-                "No telemetry exporter configured. Set APPLICATIONINSIGHTS:CONNECTIONSTRING and/or OTEL_EXPORTER_OTLP_ENDPOINT.");
+                "No telemetry exporter configured. Set APPLICATIONINSIGHTS:CONNECTION_STRING and/or OTEL_EXPORTER_OTLP_ENDPOINT.");
 
         var otel = _builder
             .Services
