@@ -31,7 +31,7 @@ dotnet add package Uniphar.Platform.Telemetry
 ### Prerequisities/Exporters
 
 Depending on the telemetry stack you're targetting, following secrets are checked to determine which exporters to enable
- - **APPLICATIONINSIGHTS:CONNECTION_STRING** - to enable Azure Monitor
+ - **APPLICATIONINSIGHTS_CONNECTION_STRING** - to enable Azure Monitor
  - **OTEL_EXPORTER_OTLP_ENDPOINT** - to enable OTLP (OpenTelemetry) generic flow
 
 Both can be used at the same time.
