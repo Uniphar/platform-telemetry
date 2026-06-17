@@ -117,7 +117,7 @@ public sealed class TelemetryBuilder
             {
                 tracerProviderBuilder
                     .AddSource(_appName)
-                    .AddSource("Uniphar.Platform.Telemetry.CustomEvents")
+                    .AddSource(CustomEventTelemetryClient.CustomEventActivitySource.Name)
                     .AddAspNetCoreInstrumentation(options =>
                     {
                         options.RecordException = true;
@@ -181,7 +181,7 @@ public sealed class TelemetryBuilder
             var emitMode = (useAzureMonitor, useOtlp) switch
             {
                 (true, true) => CustomEventEmitMode.Both,
-                (true, false) => CustomEventEmitMode.Both,
+                (true, false) => CustomEventEmitMode.LogRecord,
                 (false, true) => CustomEventEmitMode.ActivitySpan,
                 _ => CustomEventEmitMode.ActivitySpan
             };

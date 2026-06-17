@@ -1,7 +1,8 @@
 ﻿namespace Uniphar.Platform.Telemetry;
 
 /// <summary>
-///     Service to track custom events via OpenTelemetry/Azure Monitor or both in contextual way
+///     Service to track custom events via OpenTelemetry/Azure Monitor or both as per emit mode configuration.
+///     This handles custom events differentation so that they are ingested as spans under OpenTelemetry or custom events in Azure Monitor.
 /// </summary>
 public interface ICustomEventTelemetryClient
 {
