@@ -74,7 +74,7 @@ public class ExceptionToCustomEventConverterTests
     private static ExceptionToCustomEventConverter CreateProcessorFromRegisteredRules(ICustomEventTelemetryClient client)
     {
         var appBuilder = Host.CreateApplicationBuilder();
-        appBuilder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"] = "InstrumentationKey=00000000-0000-0000-0000-000000000000";
+        appBuilder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] = "InstrumentationKey=00000000-0000-0000-0000-000000000000";
         appBuilder
             .RegisterOpenTelemetry("test-app")
             .WithExceptionsFilters(TelemetryExceptionHandlingRulesFilter.Rules)
@@ -129,7 +129,7 @@ public class ExceptionToCustomEventConverterIntegrationTests
     private static ExceptionToCustomEventConverter CreateProcessorFromRegisteredRules(ICustomEventTelemetryClient client)
     {
         var appBuilder = Host.CreateApplicationBuilder();
-        appBuilder.Configuration["APPLICATIONINSIGHTS:CONNECTIONSTRING"] = "InstrumentationKey=00000000-0000-0000-0000-000000000000";
+        appBuilder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] = "InstrumentationKey=00000000-0000-0000-0000-000000000000";
         appBuilder
             .RegisterOpenTelemetry("test-app")
             .WithExceptionsFilters(TelemetryExceptionHandlingRulesFilter.Rules)
