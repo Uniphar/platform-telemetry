@@ -31,7 +31,7 @@ dotnet add package Uniphar.Platform.Telemetry
 ### Prerequisities/Exporters
 
 Depending on the telemetry stack you're targetting, following secrets are checked to determine which exporters to enable
- - **APPLICATIONINSIGHTS_CONNECTION_STRING** - to enable Azure Monitor
+ - **APPLICATIONINSIGHTS_CONNECTION_STRING** - to enable Azure Monitor (configurable via `WithAppInsightsEnvironmentVariable`)
  - **OTEL_EXPORTER_OTLP_ENDPOINT** - to enable OTLP (OpenTelemetry) generic flow
 
 Both can be used at the same time.
@@ -104,6 +104,7 @@ The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you 
 - **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Configure exception handling rules
 - **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from telemetry
 - **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering
+- **`.WithAppInsightsEnvironmentVariable(string)`**: Override the environment variable / configuration key used to read the Application Insights connection string (defaults to `APPLICATIONINSIGHTS_CONNECTION_STRING`)
 - **`.Build()`**: Finalize and apply the telemetry configuration (must be called last)
 
 You can chain these methods in any order:
@@ -124,6 +125,11 @@ builder.RegisterOpenTelemetry("my-application")
     .WithExceptionsFilters(exceptionRules)
     .WithFilterExclusion(new[] { "/health", "/metrics" })
     .WithDependencyFilter()
+    .Build();
+
+// Override the Application Insights connection string environment variable
+builder.RegisterOpenTelemetry("my-application")
+    .WithAppInsightsEnvironmentVariable("MY_CUSTOM_APPINSIGHTS_CONNECTION_STRING")
     .Build();
 ```
 
