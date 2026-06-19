@@ -62,7 +62,8 @@ public sealed class TelemetryBuilder
         // application logs no longer write to stdout/stderr. Telemetry is exported via the configured exporter(s).
         _builder.Logging.ClearProviders();
 
-        var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+        var appInsightsConnectionString = _builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]
+                           ?? Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
         var otlpEndpoint = _builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]
                            ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
 
