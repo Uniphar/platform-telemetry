@@ -40,9 +40,9 @@ public static class TelemetryExtensions
         /// <param name="variableName">The environment variable / configuration key name.</param>
         public TelemetryBuilder WithAppInsightsEnvironmentVariable(string variableName)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(variableName);
-            telemetryBuilder.AppInsightsEnvironmentVariable = variableName;
-            return telemetryBuilder;
+ArgumentException.ThrowIfNullOrWhiteSpace(variableName);
+telemetryBuilder.AppInsightsEnvironmentVariable = variableName.Trim();
+return telemetryBuilder;
         }
 
         /// <summary>
