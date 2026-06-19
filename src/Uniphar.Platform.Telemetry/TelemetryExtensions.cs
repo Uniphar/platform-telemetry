@@ -33,6 +33,19 @@ public static class TelemetryExtensions
         }
 
         /// <summary>
+        ///     Overrides the environment variable / configuration key used to read the
+        ///     Application Insights connection string.
+        ///     Defaults to <c>APPLICATIONINSIGHTS_CONNECTION_STRING</c> when not called.
+        /// </summary>
+        /// <param name="variableName">The environment variable / configuration key name.</param>
+        public TelemetryBuilder WithAppInsightsEnvironmentVariable(string variableName)
+        {
+ArgumentException.ThrowIfNullOrWhiteSpace(variableName);
+telemetryBuilder.AppInsightsEnvironmentVariable = variableName.Trim();
+return telemetryBuilder;
+        }
+
+        /// <summary>
         /// </summary>
         /// <param name="exceptionHandlingRules">exception handling rules</param>
         public TelemetryBuilder WithExceptionsFilters(IEnumerable<ExceptionHandlingRule> exceptionHandlingRules)
