@@ -1,7 +1,8 @@
 ﻿namespace Uniphar.Platform.Telemetry;
 
 /// <summary>
-///     Service to track custom events in Application Insights via OpenTelemetry
+///     Service to track custom events via OpenTelemetry/Azure Monitor or both as per emit mode configuration.
+///     This handles custom events differentation so that they are ingested as spans under OpenTelemetry or custom events in Azure Monitor.
 /// </summary>
 public interface ICustomEventTelemetryClient
 {
@@ -14,11 +15,33 @@ public interface ICustomEventTelemetryClient
 }
 
 /// <summary>
-///     Service to track custom events in Application Insights via OpenTelemetry
+///     Service to track custom events via OpenTelemetry.
+///     Emits events as activity spans, structured log records, or both depending on <see cref="CustomEventEmitMode" />.
 /// </summary>
-public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClient> logger, bool diagnosticLogging = false) : ICustomEventTelemetryClient
+public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
 {
     private const string CustomEventAttribute = "microsoft.custom_event.name";
+    internal static readonly ActivitySource CustomEventActivitySource = new("Uniphar.Platform.Telemetry.CustomEvents");
+
+    private readonly bool _diagnosticLogging;
+    private readonly CustomEventEmitMode _emitMode;
+    private readonly ILogger<CustomEventTelemetryClient>? _logger;
+
+    /// <summary>
+    ///     Creates a new instance of <see cref="CustomEventTelemetryClient" />.
+    /// </summary>
+    /// <param name="diagnosticLogging">Write diagnostic messages to stderr.</param>
+    /// <param name="emitMode">Determines which telemetry signals are emitted.</param>
+    /// <param name="logger">Logger used for the <see cref="CustomEventEmitMode.LogRecord" /> path.</param>
+    public CustomEventTelemetryClient(
+        bool diagnosticLogging = false,
+        CustomEventEmitMode emitMode = CustomEventEmitMode.ActivitySpan,
+        ILogger<CustomEventTelemetryClient>? logger = null)
+    {
+        _diagnosticLogging = diagnosticLogging;
+        _emitMode = emitMode;
+        _logger = logger;
+    }
 
     /// <inheritdoc />
     public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
@@ -28,9 +51,13 @@ public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClien
             var properties = NormalizeProperties(state);
 
             using var _ = AmbientTelemetryProperties.Initialize(properties);
-            SetActivityTagFallbacks(properties);
             LogDiagnostics(eventName);
-            EmitLogRecord(eventName, properties);
+
+            if (_emitMode.HasFlag(CustomEventEmitMode.ActivitySpan))
+                EmitActivitySpan(eventName, properties);
+
+            if (_emitMode.HasFlag(CustomEventEmitMode.LogRecord))
+                EmitLogRecord(eventName, properties);
         }
         catch (Exception ex)
         {
@@ -44,15 +71,9 @@ public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClien
             .Select(x => new KeyValuePair<string, string>(x.Key, x.Value.ToString() ?? string.Empty))
             .ToArray();
 
-    private static void SetActivityTagFallbacks(KeyValuePair<string, string>[] properties)
-    {
-        foreach (var (key, value) in properties)
-            Activity.Current?.SetTag(key, value);
-    }
-
     private void LogDiagnostics(string eventName)
     {
-        if (!diagnosticLogging) return;
+        if (!_diagnosticLogging) return;
 
         // Flatten all ambient scopes, deduplicate by key (first occurrence wins, innermost scope is first).
         var stateString = string.Join(", ", AmbientTelemetryProperties.AmbientProperties
@@ -61,8 +82,23 @@ public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClien
             .Select(g => $"{g.Key}={g.First().Value}"));
 
         // Write directly to stderr so the event is always visible in container logs,
-        // independent of the AppInsights pipeline.
+        // independent of the OTLP pipeline.
         Console.Error.WriteLine($"[TrackEvent] {DateTimeOffset.UtcNow:O} {eventName} {{{stateString}}}");
+    }
+
+    private static void EmitActivitySpan(string eventName, KeyValuePair<string, string>[] properties)
+    {
+        using var activity = CustomEventActivitySource.StartActivity(eventName, ActivityKind.Internal);
+        if (activity is null) return;
+
+        activity.SetTag("event.name", eventName);
+
+        foreach (var (key, value) in properties)
+            activity.SetTag(key, value);
+
+        // Inject ambient properties as span tags
+        foreach (var (key, value) in AmbientTelemetryProperties.AmbientProperties.SelectMany(p => p.PropertiesToInject))
+            activity.SetTag(key, value);
     }
 
     private void EmitLogRecord(string eventName, KeyValuePair<string, string>[] properties)
@@ -73,6 +109,6 @@ public sealed class CustomEventTelemetryClient(ILogger<CustomEventTelemetryClien
         var args = new object?[] { eventName }.Concat(properties.Select(x => (object?)x.Value)).ToArray();
 
         // LogCritical is intentional — lower severities may be filtered out before reaching AppInsights.
-        logger.LogCritical(template, args);
+        _logger?.LogCritical(template, args);
     }
 }
