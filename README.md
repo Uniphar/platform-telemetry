@@ -31,8 +31,9 @@ dotnet add package Uniphar.Platform.Telemetry
 ### Prerequisities/Exporters
 
 Depending on the telemetry stack you're targetting, following configurations/environment variables are checked to determine which exporters to enable
- - **APPLICATIONINSIGHTS_CONNECTION_STRING** - to enable Azure Monitor (configurable via `WithAppInsightsEnvironmentVariable`)
- - **OTEL_EXPORTER_OTLP_ENDPOINT** - to enable OTLP (OpenTelemetry) generic flow
+
+- **APPLICATIONINSIGHTS_CONNECTION_STRING** - to enable Azure Monitor (or supply directly via `WithAppInsightsConnectionString`)
+- **OTEL_EXPORTER_OTLP_ENDPOINT** - to enable OTLP (OpenTelemetry) generic flow
 
 Both can be used at the same time.
 
@@ -104,7 +105,7 @@ The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you 
 - **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Configure exception handling rules
 - **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from telemetry
 - **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering
-- **`.WithAppInsightsEnvironmentVariable(string)`**: Override the environment variable / configuration key used to read the Application Insights connection string (defaults to `APPLICATIONINSIGHTS_CONNECTION_STRING`)
+- **`.WithAppInsightsConnectionString(string)`**: Supply the Application Insights connection string directly, bypassing the default `APPLICATIONINSIGHTS_CONNECTION_STRING` config/environment variable lookup
 - **`.Build()`**: Finalize and apply the telemetry configuration (must be called last)
 
 You can chain these methods in any order:
@@ -127,9 +128,9 @@ builder.RegisterOpenTelemetry("my-application")
     .WithDependencyFilter()
     .Build();
 
-// Override the Application Insights connection string environment variable
+// Supply the Application Insights connection string directly
 builder.RegisterOpenTelemetry("my-application")
-    .WithAppInsightsEnvironmentVariable("MY_CUSTOM_APPINSIGHTS_CONNECTION_STRING")
+    .WithAppInsightsConnectionString("InstrumentationKey=...;IngestionEndpoint=...")
     .Build();
 ```
 

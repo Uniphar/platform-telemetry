@@ -5,60 +5,36 @@ using Uniphar.Platform.Telemetry;
 
 [TestClass]
 [TestCategory("Unit")]
-public class AppInsightsEnvironmentVariableOverrideTests
+public class AppInsightsConnectionStringOverrideTests
 {
-    private const string CustomKey = "MY_CUSTOM_APPINSIGHTS_CS";
     private const string FakeConnectionString = "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://test.in.applicationinsights.azure.com/";
 
     [TestMethod]
-    public void Build_WithOverriddenKey_ReadsConnectionStringFromCustomConfigKey()
+    public void Build_WithConnectionString_UsesProvidedValue()
     {
-        // Arrange – connection string is ONLY under the custom key, not the default
+        // Arrange – no config/env var set, connection string provided directly
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
-        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            [CustomKey] = FakeConnectionString
-        });
 
-        // Act – should NOT throw because the override tells Build() to look at CustomKey
+        // Act – should NOT throw because the connection string is supplied explicitly
         var act = () => builder
             .RegisterOpenTelemetry("test-app")
-            .WithAppInsightsEnvironmentVariable(CustomKey)
+            .WithAppInsightsConnectionString(FakeConnectionString)
             .Build();
 
         act.Should().NotThrow();
     }
 
     [TestMethod]
-    public void Build_WithoutOverride_DoesNotReadFromCustomKey()
+    public void Build_WithoutConnectionString_FallsBackToDefaultConfigKey()
     {
-        // Arrange – connection string exists ONLY under a non-default key
+        // Arrange – connection string under the default APPLICATIONINSIGHTS_CONNECTION_STRING key
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
-            [CustomKey] = FakeConnectionString
+            ["APPLICATIONINSIGHTS_CONNECTION_STRING"] = FakeConnectionString
         });
 
-        // Act – should throw because the default key has no value and OTLP is also not set
-        var act = () => builder
-            .RegisterOpenTelemetry("test-app")
-            .Build();
-
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage($"*{TelemetryBuilder.DefaultAppInsightsEnvironmentVariable}*");
-    }
-
-    [TestMethod]
-    public void Build_WithDefaultKey_ReadsConnectionStringFromDefaultConfigKey()
-    {
-        // Arrange – connection string under the default key
-        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
-        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            [TelemetryBuilder.DefaultAppInsightsEnvironmentVariable] = FakeConnectionString
-        });
-
-        // Act – should succeed without calling WithAppInsightsEnvironmentVariable
+        // Act – should succeed using the default config key fallback
         var act = () => builder
             .RegisterOpenTelemetry("test-app")
             .Build();
@@ -67,19 +43,33 @@ public class AppInsightsEnvironmentVariableOverrideTests
     }
 
     [TestMethod]
-    public void Build_WithOverriddenKey_ErrorMessageReflectsCustomKey()
+    public void Build_WithoutAnyExporterConfigured_ThrowsInvalidOperationException()
     {
-        // Arrange – no connection string anywhere
+        // Arrange – no connection string anywhere, no OTLP endpoint
         var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
 
         // Act
         var act = () => builder
             .RegisterOpenTelemetry("test-app")
-            .WithAppInsightsEnvironmentVariable(CustomKey)
             .Build();
 
-        // Assert – the error message should mention the custom key, not the default
+        // Assert – should throw because no exporter is configured
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage($"*{CustomKey}*");
+            .WithMessage("*APPLICATIONINSIGHTS_CONNECTION_STRING*");
+    }
+
+    [TestMethod]
+    public void WithAppInsightsConnectionString_WithNullOrWhitespace_ThrowsArgumentException()
+    {
+        // Arrange
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings { DisableDefaults = true });
+
+        // Act
+        var act = () => builder
+            .RegisterOpenTelemetry("test-app")
+            .WithAppInsightsConnectionString("   ");
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
     }
 }

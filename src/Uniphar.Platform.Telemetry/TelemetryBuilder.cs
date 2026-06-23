@@ -5,7 +5,6 @@
 /// </summary>
 public sealed class TelemetryBuilder
 {
-    internal const string DefaultAppInsightsEnvironmentVariable = "APPLICATIONINSIGHTS_CONNECTION_STRING";
 
     private readonly string _appName;
     private readonly IHostApplicationBuilder _builder;
@@ -19,10 +18,11 @@ public sealed class TelemetryBuilder
     }
 
     internal bool EnableDiagnosticLogging { get; set; }
-    internal string AppInsightsEnvironmentVariable { get; set; } = DefaultAppInsightsEnvironmentVariable;
     internal IEnumerable<ExceptionHandlingRule> ExceptionHandlingRules { get; set; }
     internal IEnumerable<string> PathsToFilterOutStartingWith { get; set; }
     internal DependencyFilterConfiguration? DependencyFilterConfiguration { get; set; }
+    internal string? AppInsightsConnectionString { get; set; } = null;
+
 
     /// <summary>
     /// Determines whether a given HTTP request should be sampled for telemetry,
@@ -65,8 +65,9 @@ public sealed class TelemetryBuilder
         // application logs no longer write to stdout/stderr. Telemetry is exported via the configured exporter(s).
         _builder.Logging.ClearProviders();
 
-        var appInsightsConnectionString = _builder.Configuration[AppInsightsEnvironmentVariable]
-                           ?? Environment.GetEnvironmentVariable(AppInsightsEnvironmentVariable);
+        var appInsightsConnectionString = AppInsightsConnectionString
+                                            ?? _builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]
+                                            ?? Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
         var otlpEndpoint = _builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]
                            ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
 
@@ -75,7 +76,7 @@ public sealed class TelemetryBuilder
 
         if (!useAzureMonitor && !useOtlp)
             throw new InvalidOperationException(
-                $"No telemetry exporter configured. Set {AppInsightsEnvironmentVariable} and/or OTEL_EXPORTER_OTLP_ENDPOINT.");
+                $"No telemetry exporter configured. Set APPLICATIONINSIGHTS_CONNECTION_STRING and/or OTEL_EXPORTER_OTLP_ENDPOINT (or call WithAppInsightsConnectionString(...)).");
 
         var otel = _builder
             .Services

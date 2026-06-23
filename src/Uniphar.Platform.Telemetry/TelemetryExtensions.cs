@@ -37,12 +37,15 @@ public static class TelemetryExtensions
         ///     Application Insights connection string.
         ///     Defaults to <c>APPLICATIONINSIGHTS_CONNECTION_STRING</c> when not called.
         /// </summary>
-        /// <param name="variableName">The environment variable / configuration key name.</param>
-        public TelemetryBuilder WithAppInsightsEnvironmentVariable(string variableName)
+        /// <param name="appInsightsConnectionString">The Application Insights connection string.</param>
+        public TelemetryBuilder WithAppInsightsConnectionString(string appInsightsConnectionString)
         {
-ArgumentException.ThrowIfNullOrWhiteSpace(variableName);
-telemetryBuilder.AppInsightsEnvironmentVariable = variableName.Trim();
-return telemetryBuilder;
+            ArgumentException.ThrowIfNullOrWhiteSpace(appInsightsConnectionString);
+
+            telemetryBuilder.AppInsightsConnectionString = appInsightsConnectionString;
+
+            return telemetryBuilder;
+
         }
 
         /// <summary>
