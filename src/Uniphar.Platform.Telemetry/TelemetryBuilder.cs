@@ -76,7 +76,7 @@ public sealed class TelemetryBuilder
 
         if (!useAzureMonitor && !useOtlp)
             throw new InvalidOperationException(
-                $"No telemetry exporter configured. Set APPLICATIONINSIGHTS_CONNECTION_STRING and/or OTEL_EXPORTER_OTLP_ENDPOINT.");
+                $"No telemetry exporter configured. Set APPLICATIONINSIGHTS_CONNECTION_STRING and/or OTEL_EXPORTER_OTLP_ENDPOINT (or call WithAppInsightsConnectionString(...)).");
 
         var otel = _builder
             .Services
