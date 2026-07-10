@@ -18,6 +18,7 @@ public sealed class TelemetryBuilder
     }
 
     internal bool EnableDiagnosticLogging { get; set; }
+    internal bool EnableOtelDropListener { get; set; }
     internal IEnumerable<ExceptionHandlingRule> ExceptionHandlingRules { get; set; }
     internal IEnumerable<string> PathsToFilterOutStartingWith { get; set; }
     internal DependencyFilterConfiguration? DependencyFilterConfiguration { get; set; }
@@ -205,6 +206,12 @@ public sealed class TelemetryBuilder
         {
             opts.ShutdownTimeout = TimeSpan.FromSeconds(15);
         });
+
+        if (EnableOtelDropListener)
+        {
+            var dropListener = new OtelDropListener();
+            _builder.Services.AddSingleton(dropListener);
+        }
     }
 
     private static void SetEnvDefault(string key, string value)

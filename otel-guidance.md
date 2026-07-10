@@ -100,7 +100,7 @@ Common messages and what they mean:
 | Message | Cause |
 |---|---|
 | `dropped N item(s) due to buffer full` | The batch queue is full. Increase `OTEL_BSP_MAX_QUEUE_SIZE`. |
-| `Transmission failed. StatusCode: 206` | Ingestion sampling is on. Disable it in the Azure portal. |
+| `Transmission failed. StatusCode: 206` | Application Insights returned a partial-success response. Can be caused by ingestion sampling but also by malformed telemetry items or transient backend errors. Check the ingestion sampling setting in the Azure portal, but do not assume it is the only cause. |
 | `Field 'message' on type 'MessageData' is required` | A log record with an empty message was sent. Check exception converters. |
 | `Failed to export` / `Failed to transmit` | Network or authentication problem reaching the ingestion endpoint. |
 
@@ -110,8 +110,8 @@ Common messages and what they mean:
 
 ### Telemetry is missing or there are gaps
 
-1. Check pod logs: `kubectl logs <pod> --since=2h | grep OtelDropListener`
-2. If you see `StatusCode: 206`, ingestion sampling is on. Turn it off in the Azure portal.
+1. Check pod logs: `kubectl logs <pod> --since=2h | Select-String OtelDropListener`
+2. If you see `StatusCode: 206`, Application Insights returned a partial-success response. Check the ingestion sampling setting in the Azure portal, but note that 206 can also be caused by malformed telemetry items or transient backend errors — not only by sampling.
 3. If you see `buffer full`, the queue is too small or the service is under heavy load. Increase `OTEL_BSP_MAX_QUEUE_SIZE` and `OTEL_BLRP_MAX_QUEUE_SIZE`.
 4. Check that no conflicting packages are referenced (see NuGet Packages section above).
 
@@ -124,10 +124,22 @@ Check the NuGet packages in the project. If `OpenTelemetry.Instrumentation.AspNe
 1. Set `WithDiagnosticLogging(true)` when calling `RegisterOpenTelemetry`. This writes `[TrackEvent]` lines to stderr. Check the pod logs for these lines to confirm events are being emitted.
 2. Check that nothing is filtering out `LogLevel.Critical` logs in your logging configuration.
 
+To see the diagnostic trace lines in Log Analytics, query `ContainerLogV2` for `TrackEvent` entries:
+
+```kql
+ContainerLogV2 
+| where LogMessage contains "TrackEvent"
+| where LogMessage has "Job"
+| project TimeGenerated, LogMessage
+| order by TimeGenerated desc
+```
+
+Each matching row confirms a custom event was emitted by the service. If rows are present here but the event does not appear in the `customEvents` table in Application Insights, the event was emitted but dropped or rejected during export.
+
 ### Metrics are missing but traces look fine
 
 Metrics are never sampled. If metrics disappear but traces are present, the cause is likely a transmission failure, not sampling. Check pod logs for `Transmission failed` events.
 
 ### All telemetry stops for a period
 
-This is the ingestion sampling bug. The SDK receives a 206 response from Application Insights and stops sending everything for a backoff period. Disable ingestion sampling in the Azure portal or set `options.StorageDirectory = null` to break the retry loop.
+This is the ingestion sampling bug ([azure-sdk-for-net#48141](https://github.com/Azure/azure-sdk-for-net/issues/48141)). The SDK receives a 206 response from Application Insights and stops sending everything for a backoff period. A 206 does not always mean ingestion sampling is enabled — it can also be triggered by malformed telemetry or transient backend errors. Check the ingestion sampling setting in the Azure portal, but also inspect which items caused the partial failure. Set `options.StorageDirectory = null` to break the retry loop.

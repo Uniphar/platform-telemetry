@@ -23,6 +23,17 @@ public static class TelemetryExtensions
     extension(TelemetryBuilder telemetryBuilder)
     {
         /// <summary>
+        ///     Enables an <see cref="OtelDropListener" /> that writes OpenTelemetry SDK and Azure Monitor Exporter
+        ///     warning/error events to the console, making silent telemetry drops visible in container logs.
+        /// </summary>
+        /// <param name="enabled">Set to <c>false</c> to opt out when the method is called conditionally.</param>
+        public TelemetryBuilder WithOtelDropListener(bool enabled = true)
+        {
+            telemetryBuilder.EnableOtelDropListener = enabled;
+            return telemetryBuilder;
+        }
+
+        /// <summary>
         ///     Enables diagnostic logging of custom events to stderr (container logs).
         ///     Use to cross-check whether TrackEvent was called when events are missing in AppInsights.
         /// </summary>

@@ -11,6 +11,7 @@ global using OpenTelemetry.Resources;
 global using OpenTelemetry.Trace;
 global using System.Collections.Immutable;
 global using System.Diagnostics;
+global using System.Diagnostics.Tracing;
 global using System.Runtime.CompilerServices;
 
 
