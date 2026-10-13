@@ -23,11 +23,13 @@ public sealed class AmbientTelemetryProperties : IDisposable
 
     internal ImmutableArray<KeyValuePair<string, string>> PropertiesToInject { get; }
 
+    internal Activity? OperationActivity { get; set; }
 
     /// <inheritdoc />
     public void Dispose()
     {
         AmbientProperties = AmbientProperties.Remove(this);
+        OperationActivity?.Dispose();
     }
 
     internal static AmbientTelemetryProperties Initialize(IEnumerable<KeyValuePair<string, string>>? propertiesToInject)

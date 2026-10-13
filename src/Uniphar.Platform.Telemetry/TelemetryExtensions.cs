@@ -5,12 +5,37 @@
 /// </summary>
 public static class TelemetryExtensions
 {
+    internal static readonly ActivitySource OperationActivitySource = new("Uniphar.Platform.Telemetry.Operations");
+
     /// <summary>
     ///     Sets ambient properties to be included in all telemetry events tracked within the current async context.
+    ///     When no <see cref="Activity" /> is current (e.g. message handlers), an operation span is started and ended with the returned scope,
+    ///     so everything emitted inside shares one trace.
     /// </summary>
     /// <param name="telemetry"></param>
     /// <param name="properties"></param>
-    public static AmbientTelemetryProperties WithProperties(this ICustomEventTelemetryClient telemetry, IEnumerable<KeyValuePair<string, string>> properties) => AmbientTelemetryProperties.Initialize(properties);
+    /// <param name="operationName">Optional operation span name; defaults to <c>ClassFile.Method</c> of the caller.</param>
+    /// <param name="callerMember">Filled in by the compiler.</param>
+    /// <param name="callerFilePath">Filled in by the compiler.</param>
+    public static AmbientTelemetryProperties WithProperties(
+        this ICustomEventTelemetryClient telemetry,
+        IEnumerable<KeyValuePair<string, string>> properties,
+        string? operationName = null,
+        [CallerMemberName] string? callerMember = null,
+        [CallerFilePath] string? callerFilePath = null)
+    {
+        var scope = AmbientTelemetryProperties.Initialize(properties);
+
+        if (Activity.Current is null)
+        {
+            var name = string.IsNullOrWhiteSpace(operationName)
+                ? $"{Path.GetFileNameWithoutExtension(callerFilePath)}.{callerMember}"
+                : operationName;
+            scope.OperationActivity = OperationActivitySource.StartActivity(name, ActivityKind.Consumer);
+        }
+
+        return scope;
+    }
 
     /// <summary>
     ///     Registers OpenTelemetry services and configures telemetry for the application.

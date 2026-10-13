@@ -61,6 +61,9 @@ public sealed class TelemetryBuilder
         SetEnvDefault("OTEL_BSP_MAX_QUEUE_SIZE", "4096"); // default 2048
         SetEnvDefault("OTEL_BLRP_MAX_QUEUE_SIZE", "4096"); //default 2048
 
+        // Older Azure SDK versions only emit Activity spans (and propagate trace context) when this switch is on.
+        AppContext.SetSwitch("Azure.Experimental.EnableActivitySource", true);
+
         // Remove all default logging providers (Console, Debug, EventSource) so that
         // application logs no longer write to stdout/stderr. Telemetry is exported via the configured exporter(s).
         _builder.Logging.ClearProviders();
@@ -123,6 +126,7 @@ public sealed class TelemetryBuilder
                 tracerProviderBuilder
                     .AddSource(_appName)
                     .AddSource(CustomEventTelemetryClient.CustomEventActivitySource.Name)
+                    .AddSource(TelemetryExtensions.OperationActivitySource.Name)
                     .AddAspNetCoreInstrumentation(options =>
                     {
                         options.RecordException = true;
@@ -144,12 +148,12 @@ public sealed class TelemetryBuilder
                     tracerProviderBuilder.AddHttpClientInstrumentation();
                 }
 
+                //capture all dependencies from Azure SDKs so Service Bus/Storage/etc. calls are part of the trace
+                tracerProviderBuilder.AddSource("Azure.*");
+
                 if (DependencyFilterConfiguration is not null)
                 {
-                    tracerProviderBuilder
-                        //capture all dependencies from Azure SDKs
-                        .AddSource("Azure.*")
-                        .AddProcessor(new DependencyTelemetryFilter(DependencyFilterConfiguration));
+                    tracerProviderBuilder.AddProcessor(new DependencyTelemetryFilter(DependencyFilterConfiguration));
                 }
             })
             .WithLogging(loggerProviderBuilder =>
