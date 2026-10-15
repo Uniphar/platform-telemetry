@@ -5,7 +5,6 @@
 /// </summary>
 public sealed class TelemetryBuilder
 {
-
     private readonly string _appName;
     private readonly IHostApplicationBuilder _builder;
 
@@ -25,8 +24,8 @@ public sealed class TelemetryBuilder
 
 
     /// <summary>
-    /// Determines whether a given HTTP request should be sampled for telemetry,
-    /// applying health-path filtering only when the response is successful (2xx-3xx).
+    ///     Determines whether a given HTTP request should be sampled for telemetry,
+    ///     applying health-path filtering only when the response is successful (2xx-3xx).
     /// </summary>
     internal static bool ShouldSampleRequest(HttpContext httpContext, IEnumerable<string> pathsToFilterOutStartingWith)
     {
@@ -37,7 +36,7 @@ public sealed class TelemetryBuilder
 
         try
         {
-            success = httpContext.Response.StatusCode is (>= 200 and < 400);
+            success = httpContext.Response.StatusCode is >= 200 and < 400;
         }
         catch
         {
@@ -46,6 +45,10 @@ public sealed class TelemetryBuilder
 
         return !success || !pathsToFilterOutStartingWith.Any(p => path.Value.StartsWith(p, StringComparison.OrdinalIgnoreCase));
     }
+
+
+
+
 
     /// <summary>
     ///     Builds and configures the OpenTelemetry services.
@@ -68,18 +71,17 @@ public sealed class TelemetryBuilder
         // application logs no longer write to stdout/stderr. Telemetry is exported via the configured exporter(s).
         _builder.Logging.ClearProviders();
 
-        var appInsightsConnectionString = AppInsightsConnectionString
-                                            ?? _builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]
-                                            ?? Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
-        var otlpEndpoint = _builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]
-                           ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+        var appInsightsConnectionString = AppInsightsConnectionString ?? _builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] ?? Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
+        var otlpEndpoint = _builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
 
         var useAzureMonitor = !string.IsNullOrWhiteSpace(appInsightsConnectionString);
         var useOtlp = !string.IsNullOrWhiteSpace(otlpEndpoint);
 
         if (!useAzureMonitor && !useOtlp)
+        {
             throw new InvalidOperationException(
-                $"No telemetry exporter configured. Set APPLICATIONINSIGHTS_CONNECTION_STRING and/or OTEL_EXPORTER_OTLP_ENDPOINT (or call WithAppInsightsConnectionString(...)).");
+                "No telemetry exporter configured. Set APPLICATIONINSIGHTS_CONNECTION_STRING and/or OTEL_EXPORTER_OTLP_ENDPOINT (or call WithAppInsightsConnectionString(...)).");
+        }
 
         var otel = _builder
             .Services
@@ -101,22 +103,20 @@ public sealed class TelemetryBuilder
             });
         }
 
-        if (useOtlp)
-        {
-            otel.UseOtlpExporter();
-        }
+        if (useOtlp) otel.UseOtlpExporter();
 
         otel
             .ConfigureResource(resource =>
             {
-                // Override 'service.instance.id' and 'host.name' resource attributes to ensure telemetry reflects the current pod or machine name.
-                // The default values set by ResourceBuilder.CreateDefault() use an auto-generated guid for the running instance.
                 var podName = Environment.MachineName;
+                // service.namespace, service.version and deployment.environment.name are deliberately not set, no need for them
+
                 resource
                     .AddTelemetrySdk()
                     .AddService(_appName)
                     .AddAttributes(new Dictionary<string, object>
                     {
+                        // Override 'service.instance.id' and 'host.name' resource attributes to ensure telemetry reflects the current pod or machine name.
                         ["service.instance.id"] = podName,
                         ["host.name"] = podName
                     });
@@ -143,18 +143,12 @@ public sealed class TelemetryBuilder
 
                 // When Azure Monitor is not active, explicitly add HTTP client instrumentation
                 // (the Azure Monitor distro normally registers this automatically).
-                if (!useAzureMonitor)
-                {
-                    tracerProviderBuilder.AddHttpClientInstrumentation();
-                }
+                if (!useAzureMonitor) tracerProviderBuilder.AddHttpClientInstrumentation();
 
                 //capture all dependencies from Azure SDKs so Service Bus/Storage/etc. calls are part of the trace
                 tracerProviderBuilder.AddSource("Azure.*");
 
-                if (DependencyFilterConfiguration is not null)
-                {
-                    tracerProviderBuilder.AddProcessor(new DependencyTelemetryFilter(DependencyFilterConfiguration));
-                }
+                if (DependencyFilterConfiguration is not null) tracerProviderBuilder.AddProcessor(new DependencyTelemetryFilter(DependencyFilterConfiguration));
             })
             .WithLogging(loggerProviderBuilder =>
             {
@@ -183,37 +177,30 @@ public sealed class TelemetryBuilder
 
         _builder.Services.AddSingleton<ICustomEventTelemetryClient, CustomEventTelemetryClient>(sp =>
         {
-            // Auto-select emit mode based on which exporters are configured:
-            // Azure Monitor only  -> LogRecord (maps to customEvents/traces table)
-            // OTLP only           -> ActivitySpan (distributed tracing backends)
-            // Both                -> Both signals emitted
+            var logger = sp.GetRequiredService<ILogger<CustomEventTelemetryClient>>();
+            // No need to emit spans if we are in azure monitor mode only
+            // this will become both ones we remove azure monitor
             var emitMode = (useAzureMonitor, useOtlp) switch
             {
-                (true, true) => CustomEventEmitMode.Both,
                 (true, false) => CustomEventEmitMode.LogRecord,
-                (false, true) => CustomEventEmitMode.ActivitySpan,
-                _ => CustomEventEmitMode.ActivitySpan
+                _ => CustomEventEmitMode.Both
             };
-
-            var logger = sp.GetRequiredService<ILogger<CustomEventTelemetryClient>>();
-            return new CustomEventTelemetryClient(
+            return new(
                 EnableDiagnosticLogging,
                 emitMode,
-                logger);
+                logger,
+                // for now when we still have azure, we want critical for custom events
+                useAzureMonitor ? LogLevel.Critical : LogLevel.Information);
         });
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
 
         // Ensure the host gives the OpenTelemetry BatchExportProcessors enough time to flush
-        _builder.Services.PostConfigure<HostOptions>(opts =>
-        {
-            opts.ShutdownTimeout = TimeSpan.FromSeconds(15);
-        });
+        _builder.Services.PostConfigure<HostOptions>(opts => { opts.ShutdownTimeout = TimeSpan.FromSeconds(15); });
     }
 
     private static void SetEnvDefault(string key, string value)
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key)))
-            Environment.SetEnvironmentVariable(key, value);
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(key))) Environment.SetEnvironmentVariable(key, value);
     }
 }
