@@ -189,8 +189,8 @@ public sealed class TelemetryBuilder
                 EnableDiagnosticLogging,
                 emitMode,
                 logger,
-                // for now when we still have azure, we want critical for custom events
-                useAzureMonitor ? LogLevel.Critical : LogLevel.Information);
+                // critical only when app insights is the sole exporter
+                useAzureMonitor && !useOtlp ? LogLevel.Critical : LogLevel.Information);
         });
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
