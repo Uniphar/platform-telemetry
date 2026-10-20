@@ -23,11 +23,6 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
 {
     private const string CustomEventAttribute = "microsoft.custom_event.name";
 
-    /// <summary>
-    // tells otel it is a custom event not en ERROR, filter on dash0
-    /// </summary>
-    public const string CustomEventMarkerAttribute = "uniphar.custom.event";
-
     private const string EventNameAttribute = "event.name";
 
     /// <summary>
@@ -117,8 +112,6 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
         // Inject ambient properties as span tags
         foreach (var (key, value) in AmbientTelemetryProperties.AmbientProperties.SelectMany(p => p.PropertiesToInject)) activity.SetTag(key, value);
 
-        activity.SetTag(CustomEventMarkerAttribute, true);
-
         // A custom event is a deliberate signal, never a failed operation, so it must not count as a span error.
         activity.SetStatus(ActivityStatusCode.Ok);
     }
@@ -127,17 +120,15 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
     {
         // Azure Monitor CustomEvent uses structured log placeholders:
         // "{microsoft.custom_event.name} {key1} {key2} ..." — each becomes a CustomEvent property.
-        // event.name and the marker are appended last (typed values) this is for OTEL/dash0
-        var custom = properties.Where(x => x.Key is not (EventNameAttribute or CustomEventMarkerAttribute)).ToArray();
+        // event.name is appended last (typed value) this is for OTEL/dash0
+        var custom = properties.Where(x => x.Key is not EventNameAttribute).ToArray();
         var template = string.Join(" ",
             new[] { $"{{{CustomEventAttribute}}}" }
                 .Concat(custom.Select(x => $"{{{x.Key}}}"))
-                .Append($"{{{EventNameAttribute}}}")
-                .Append($"{{{CustomEventMarkerAttribute}}}"));
+                .Append($"{{{EventNameAttribute}}}"));
         var args = new object?[] { eventName }
             .Concat(custom.Select(x => (object?)x.Value))
             .Append(eventName)
-            .Append(true)
             .ToArray();
 
         _logger?.Log(_logLevel, template, args);

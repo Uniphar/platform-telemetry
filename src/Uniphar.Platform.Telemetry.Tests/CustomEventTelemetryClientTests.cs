@@ -53,28 +53,7 @@ public class CustomEventTelemetryClientTests
     }
 
     [TestMethod]
-    public void TrackEvent_ActivitySpanMode_ShouldTagSpanWithCustomEventMarker()
-    {
-        // Arrange
-        var exportedActivities = new List<Activity>();
-        using var tracerProvider = Sdk.CreateTracerProviderBuilder()
-            .AddSource("Uniphar.Platform.Telemetry.CustomEvents")
-            .AddInMemoryExporter(exportedActivities)
-            .Build();
-
-        var sut = new CustomEventTelemetryClient(emitMode: CustomEventEmitMode.ActivitySpan);
-
-        // Act
-        sut.TrackEvent("MarkedEvent");
-        tracerProvider.ForceFlush();
-
-        // Assert
-        exportedActivities.Single(a => a.DisplayName == "MarkedEvent")
-            .GetTagItem("uniphar.custom.event").Should().Be(true);
-    }
-
-    [TestMethod]
-    public void TrackEvent_LogRecordMode_ShouldAddBooleanCustomEventMarkerAttribute()
+    public void TrackEvent_LogRecordMode_ShouldAddCustomEventNameAttribute()
     {
         // Arrange
         var fakeLogger = new FakeLogger<CustomEventTelemetryClient>();
@@ -87,27 +66,8 @@ public class CustomEventTelemetryClientTests
 
         // Assert
         var state = fakeLogger.LatestRecord.StructuredState!;
-        state.Should().Contain(new KeyValuePair<string, string?>("uniphar.custom.event", "True"));
         state.Should().Contain(new KeyValuePair<string, string?>("microsoft.custom_event.name", "MarkedEvent"));
         state.Should().Contain(new KeyValuePair<string, string?>("orderId", "123"));
-    }
-
-    [TestMethod]
-    public void TrackEvent_LogRecordMode_ShouldNotLetCallerOverrideCustomEventMarker()
-    {
-        // Arrange
-        var fakeLogger = new FakeLogger<CustomEventTelemetryClient>();
-        var sut = new CustomEventTelemetryClient(
-            emitMode: CustomEventEmitMode.LogRecord,
-            logger: fakeLogger);
-
-        // Act
-        sut.TrackEvent("MarkedEvent", new Dictionary<string, object> { ["uniphar.custom.event"] = "false" });
-
-        // Assert
-        var state = fakeLogger.LatestRecord.StructuredState!;
-        state.Where(x => x.Key == "uniphar.custom.event").Should().ContainSingle()
-            .Which.Value.Should().Be("True");
     }
 
     [TestMethod]
