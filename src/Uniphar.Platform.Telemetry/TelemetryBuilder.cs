@@ -179,18 +179,13 @@ public sealed class TelemetryBuilder
         {
             var logger = sp.GetRequiredService<ILogger<CustomEventTelemetryClient>>();
             // No need to emit spans if we are in azure monitor mode only
-            // this will become both ones we remove azure monitor
-            var emitMode = (useAzureMonitor, useOtlp) switch
-            {
-                (true, false) => CustomEventEmitMode.LogRecord,
-                _ => CustomEventEmitMode.Both
-            };
+            var emitMode = useOtlp ? CustomEventEmitMode.Both : CustomEventEmitMode.LogRecord;
             return new(
                 EnableDiagnosticLogging,
                 emitMode,
                 logger,
                 // critical only when app insights is the sole exporter
-                useAzureMonitor && !useOtlp ? LogLevel.Critical : LogLevel.Information);
+                useOtlp ? LogLevel.Information : LogLevel.Critical);
         });
         // Register exception handling rules
         _builder.Services.AddSingleton<IEnumerable<ExceptionHandlingRule>>(_ => ExceptionHandlingRules);
