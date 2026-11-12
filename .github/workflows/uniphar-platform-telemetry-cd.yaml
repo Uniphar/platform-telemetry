@@ -58,7 +58,7 @@ jobs:
         uses: NuGet/login@v1
         id: login
         with:
-          user: ${{ secrets.NUGET_USER }}
+          user: ${{ secrets.UNI_NUGET_USER }}
 
       - name: Dotnet NuGet Push
         working-directory: ./src/Uniphar.Platform.Telemetry
