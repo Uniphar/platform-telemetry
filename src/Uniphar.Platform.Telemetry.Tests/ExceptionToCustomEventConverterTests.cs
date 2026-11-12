@@ -54,7 +54,7 @@ public class ExceptionToCustomEventConverterTests
         // no log level defined as the processor will convert the log to custom event
         Assert.AreEqual(LogLevel.None, exportedLog.LogLevel);
         Assert.IsNull(exportedLog.Exception);
-        Assert.AreEqual("[converted to custom event]", exportedLog.FormattedMessage);
+        Assert.IsNull(exportedLog.Body);
     }
 
     [TestMethod]
@@ -155,13 +155,17 @@ internal static class TelemetryExceptionHandlingRulesFilter
     ];
 }
 
+public sealed record ExportedLog(LogLevel LogLevel, Exception? Exception, string? Body, string? CategoryName);
+
 public class InMemoryLogRecordExporter : BaseExporter<LogRecord>
 {
-    public List<LogRecord> ExportedLogs { get; } = [];
+    public List<ExportedLog> ExportedLogs { get; } = [];
 
+    // LogRecords are pooled and reset after export, so copy the values now.
     public override ExportResult Export(in Batch<LogRecord> batch)
     {
-        foreach (var logRecord in batch) ExportedLogs.Add(logRecord);
+        foreach (var logRecord in batch)
+            ExportedLogs.Add(new ExportedLog(logRecord.LogLevel, logRecord.Exception, logRecord.Body, logRecord.CategoryName));
         return ExportResult.Success;
     }
 }
