@@ -4,7 +4,6 @@ using Microsoft.Extensions.Hosting;
 namespace Uniphar.Platform.Telemetry.Tests;
 
 [TestClass]
-[TestCategory("Unit")]
 public class ExceptionToCustomEventConverterTests
 {
     private Mock<ICustomEventTelemetryClient> _mockTelemetryClient = null!;
