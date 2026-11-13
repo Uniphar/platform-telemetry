@@ -2,11 +2,9 @@ name: CI for Uniphar.Platform.Telemetry project
 
 on:
   workflow_dispatch:
-
-  pull_request:
-    paths:
-      - .github/workflows/uniphar-platform-telemetry-ci.yaml
-      - src/Uniphar.Platform.Telemetry/**
+  push:
+    branches:
+      - main
 
 permissions:
   id-token: write

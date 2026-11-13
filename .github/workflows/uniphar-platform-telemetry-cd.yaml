@@ -6,9 +6,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - .github/workflows/uniphar-platform-telemetry-cd.yaml
-      - src/Uniphar.Platform.Telemetry/**
 
 permissions:
   id-token: write
