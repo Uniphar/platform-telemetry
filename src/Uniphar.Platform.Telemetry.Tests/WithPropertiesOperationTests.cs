@@ -3,7 +3,6 @@ using AwesomeAssertions;
 namespace Uniphar.Platform.Telemetry.Tests;
 
 [TestClass]
-[TestCategory("Unit")]
 public class WithPropertiesOperationTests
 {
     private const string Source = "Uniphar.Platform.Telemetry.Operations";

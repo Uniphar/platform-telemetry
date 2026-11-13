@@ -2,11 +2,10 @@ name: CI for Uniphar.Platform.Telemetry project
 
 on:
   workflow_dispatch:
-
+  push:
+    branches:
+      - main
   pull_request:
-    paths:
-      - .github/workflows/uniphar-platform-telemetry-ci.yaml
-      - src/Uniphar.Platform.Telemetry/**
 
 permissions:
   id-token: write
@@ -22,7 +21,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 10.x
+          dotnet-version: 11.x
       - name: Check for NuGet Vulnerabilities
         working-directory: ./src/Uniphar.Platform.Telemetry
         shell: pwsh
@@ -37,7 +36,7 @@ jobs:
       - name: Run Unit Tests
         working-directory: ./src/Uniphar.Platform.Telemetry.Tests
         run: |
-          dotnet test -v:q --nologo --filter TestCategory=Unit /p:CollectCoverage=true --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
+          dotnet test -v:q --nologo /p:CollectCoverage=true --logger "GitHubActions;summary.includePassedTests=true;summary.includeSkippedTests=true"
       - name: Generate Coverage Report
         uses: danielpalme/ReportGenerator-GitHub-Action@v5
         with:

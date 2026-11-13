@@ -4,7 +4,6 @@ using Microsoft.Extensions.Hosting;
 using Uniphar.Platform.Telemetry;
 
 [TestClass]
-[TestCategory("Unit")]
 public class AppInsightsConnectionStringOverrideTests
 {
     private const string FakeConnectionString = "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://test.in.applicationinsights.azure.com/";

@@ -4,18 +4,17 @@ using Microsoft.Extensions.Hosting;
 namespace Uniphar.Platform.Telemetry.Tests;
 
 [TestClass]
-[TestCategory("Unit")]
 public class ExceptionToCustomEventConverterTests
 {
     private Mock<ICustomEventTelemetryClient> _mockTelemetryClient = null!;
-    private InMemoryLogRecordExporter _logRecordExporter = null!;
+    private List<LogRecord> _exportedLogs = null!;
     private ILogger<ExceptionToCustomEventConverterTests> _logger = null!;
 
     [TestInitialize]
     public void Setup()
     {
         _mockTelemetryClient = new Mock<ICustomEventTelemetryClient>();
-        _logRecordExporter = new InMemoryLogRecordExporter();
+        _exportedLogs = [];
         var processor = CreateProcessorFromRegisteredRules(_mockTelemetryClient.Object);
 
         var loggerFactory = LoggerFactory.Create(builder =>
@@ -23,7 +22,8 @@ public class ExceptionToCustomEventConverterTests
             builder.AddOpenTelemetry(options =>
             {
                 options.AddProcessor(processor);
-                options.AddProcessor(new SimpleLogRecordExportProcessor(_logRecordExporter));
+                // the in-memory exporter copies pooled LogRecords, so they stay valid after export
+                options.AddInMemoryExporter(_exportedLogs);
             });
         });
         _logger = loggerFactory.CreateLogger<ExceptionToCustomEventConverterTests>();
@@ -49,12 +49,13 @@ public class ExceptionToCustomEventConverterTests
         Assert.IsNotNull(capturedState);
         Assert.IsTrue(capturedState["Exception"].ToString()!.Contains(exception.Message));
         // make sure it is only one
-        Assert.IsTrue(_logRecordExporter.ExportedLogs.Count == 1);
-        var exportedLog = _logRecordExporter.ExportedLogs.Single();
+        Assert.AreEqual(1, _exportedLogs.Count);
+        var exportedLog = _exportedLogs.Single();
         // no log level defined as the processor will convert the log to custom event
         Assert.AreEqual(LogLevel.None, exportedLog.LogLevel);
         Assert.IsNull(exportedLog.Exception);
         Assert.AreEqual("[converted to custom event]", exportedLog.FormattedMessage);
+        Assert.IsNull(exportedLog.Body);
     }
 
     [TestMethod]
@@ -68,30 +69,9 @@ public class ExceptionToCustomEventConverterTests
 
         // Assert
         _mockTelemetryClient.Verify(x => x.TrackEvent(It.IsAny<string>(), It.IsAny<Dictionary<string, object>>()), Times.Never);
-        Assert.IsTrue(_logRecordExporter.ExportedLogs.Any(log => log.Exception == exception));
+        Assert.IsTrue(_exportedLogs.Any(log => log.Exception == exception));
     }
 
-    private static ExceptionToCustomEventConverter CreateProcessorFromRegisteredRules(ICustomEventTelemetryClient client)
-    {
-        var appBuilder = Host.CreateApplicationBuilder();
-        appBuilder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] = "InstrumentationKey=00000000-0000-0000-0000-000000000000";
-        appBuilder
-            .RegisterOpenTelemetry("test-app")
-            .WithExceptionsFilters(TelemetryExceptionHandlingRulesFilter.Rules)
-            .WithDependencyFilter(DependencyFilterConfiguration.Default)
-            .Build();
-
-        using var host = appBuilder.Build();
-        var registeredRules = host.Services.GetRequiredService<IEnumerable<ExceptionHandlingRule>>();
-
-        return new ExceptionToCustomEventConverter(registeredRules, client);
-    }
-}
-
-[TestClass]
-[TestCategory("Integration")]
-public class ExceptionToCustomEventConverterIntegrationTests
-{
     [TestMethod]
     public void OnEnd_ShouldEmitCustomEventWithExceptionProperty_WhenUsingRealClient()
     {
@@ -108,7 +88,7 @@ public class ExceptionToCustomEventConverterIntegrationTests
         var appLogger = LoggerFactory.Create(builder =>
         {
             builder.AddOpenTelemetry(options => options.AddProcessor(processor));
-        }).CreateLogger<ExceptionToCustomEventConverterIntegrationTests>();
+        }).CreateLogger<ExceptionToCustomEventConverterTests>();
 
         var exception = new IOException("The process cannot access the file 'C:\\Temp\\test.txt' because it is being used by another process.");
 
@@ -153,15 +133,4 @@ internal static class TelemetryExceptionHandlingRulesFilter
             (logRecord, client) => client.TrackEvent("IoLock", new() { ["Exception"] = logRecord.Exception?.Message ?? string.Empty })
         )
     ];
-}
-
-public class InMemoryLogRecordExporter : BaseExporter<LogRecord>
-{
-    public List<LogRecord> ExportedLogs { get; } = [];
-
-    public override ExportResult Export(in Batch<LogRecord> batch)
-    {
-        foreach (var logRecord in batch) ExportedLogs.Add(logRecord);
-        return ExportResult.Success;
-    }
 }
