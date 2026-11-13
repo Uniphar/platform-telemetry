@@ -8,14 +8,14 @@ namespace Uniphar.Platform.Telemetry.Tests;
 public class ExceptionToCustomEventConverterTests
 {
     private Mock<ICustomEventTelemetryClient> _mockTelemetryClient = null!;
-    private InMemoryLogRecordExporter _logRecordExporter = null!;
+    private List<LogRecord> _exportedLogs = null!;
     private ILogger<ExceptionToCustomEventConverterTests> _logger = null!;
 
     [TestInitialize]
     public void Setup()
     {
         _mockTelemetryClient = new Mock<ICustomEventTelemetryClient>();
-        _logRecordExporter = new InMemoryLogRecordExporter();
+        _exportedLogs = [];
         var processor = CreateProcessorFromRegisteredRules(_mockTelemetryClient.Object);
 
         var loggerFactory = LoggerFactory.Create(builder =>
@@ -23,7 +23,8 @@ public class ExceptionToCustomEventConverterTests
             builder.AddOpenTelemetry(options =>
             {
                 options.AddProcessor(processor);
-                options.AddProcessor(new SimpleLogRecordExportProcessor(_logRecordExporter));
+                // the in-memory exporter copies pooled LogRecords, so they stay valid after export
+                options.AddInMemoryExporter(_exportedLogs);
             });
         });
         _logger = loggerFactory.CreateLogger<ExceptionToCustomEventConverterTests>();
@@ -49,8 +50,8 @@ public class ExceptionToCustomEventConverterTests
         Assert.IsNotNull(capturedState);
         Assert.IsTrue(capturedState["Exception"].ToString()!.Contains(exception.Message));
         // make sure it is only one
-        Assert.IsTrue(_logRecordExporter.ExportedLogs.Count == 1);
-        var exportedLog = _logRecordExporter.ExportedLogs.Single();
+        Assert.AreEqual(1, _exportedLogs.Count);
+        var exportedLog = _exportedLogs.Single();
         // no log level defined as the processor will convert the log to custom event
         Assert.AreEqual(LogLevel.None, exportedLog.LogLevel);
         Assert.IsNull(exportedLog.Exception);
@@ -69,7 +70,7 @@ public class ExceptionToCustomEventConverterTests
 
         // Assert
         _mockTelemetryClient.Verify(x => x.TrackEvent(It.IsAny<string>(), It.IsAny<Dictionary<string, object>>()), Times.Never);
-        Assert.IsTrue(_logRecordExporter.ExportedLogs.Any(log => log.Exception == exception));
+        Assert.IsTrue(_exportedLogs.Any(log => log.Exception == exception));
     }
 
     [TestMethod]
@@ -134,19 +135,3 @@ internal static class TelemetryExceptionHandlingRulesFilter
         )
     ];
 }
-
-
-public class InMemoryLogRecordExporter : BaseExporter<LogRecord>
-{
-    public List<ExportedLogRecord> ExportedLogs { get; } = [];
-
-    // LogRecords are pooled and reset after export, so copy the values now.
-    public override ExportResult Export(in Batch<LogRecord> batch)
-    {
-        foreach (var logRecord in batch)
-            ExportedLogs.Add(new(logRecord.LogLevel, logRecord.Exception, logRecord.FormattedMessage, logRecord.Body));
-        return ExportResult.Success;
-    }
-}
-
-public sealed record ExportedLogRecord(LogLevel LogLevel, Exception? Exception, string? FormattedMessage, string? Body);
