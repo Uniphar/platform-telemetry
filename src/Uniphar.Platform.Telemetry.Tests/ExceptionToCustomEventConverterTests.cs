@@ -54,6 +54,7 @@ public class ExceptionToCustomEventConverterTests
         // no log level defined as the processor will convert the log to custom event
         Assert.AreEqual(LogLevel.None, exportedLog.LogLevel);
         Assert.IsNull(exportedLog.Exception);
+        Assert.AreEqual("[converted to custom event]", exportedLog.FormattedMessage);
         Assert.IsNull(exportedLog.Body);
     }
 
@@ -71,27 +72,6 @@ public class ExceptionToCustomEventConverterTests
         Assert.IsTrue(_logRecordExporter.ExportedLogs.Any(log => log.Exception == exception));
     }
 
-    private static ExceptionToCustomEventConverter CreateProcessorFromRegisteredRules(ICustomEventTelemetryClient client)
-    {
-        var appBuilder = Host.CreateApplicationBuilder();
-        appBuilder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] = "InstrumentationKey=00000000-0000-0000-0000-000000000000";
-        appBuilder
-            .RegisterOpenTelemetry("test-app")
-            .WithExceptionsFilters(TelemetryExceptionHandlingRulesFilter.Rules)
-            .WithDependencyFilter(DependencyFilterConfiguration.Default)
-            .Build();
-
-        using var host = appBuilder.Build();
-        var registeredRules = host.Services.GetRequiredService<IEnumerable<ExceptionHandlingRule>>();
-
-        return new ExceptionToCustomEventConverter(registeredRules, client);
-    }
-}
-
-[TestClass]
-[TestCategory("Integration")]
-public class ExceptionToCustomEventConverterIntegrationTests
-{
     [TestMethod]
     public void OnEnd_ShouldEmitCustomEventWithExceptionProperty_WhenUsingRealClient()
     {
@@ -108,7 +88,7 @@ public class ExceptionToCustomEventConverterIntegrationTests
         var appLogger = LoggerFactory.Create(builder =>
         {
             builder.AddOpenTelemetry(options => options.AddProcessor(processor));
-        }).CreateLogger<ExceptionToCustomEventConverterIntegrationTests>();
+        }).CreateLogger<ExceptionToCustomEventConverterTests>();
 
         var exception = new IOException("The process cannot access the file 'C:\\Temp\\test.txt' because it is being used by another process.");
 
@@ -155,17 +135,16 @@ internal static class TelemetryExceptionHandlingRulesFilter
     ];
 }
 
-public sealed record ExportedLog(LogLevel LogLevel, Exception? Exception, string? Body, string? CategoryName);
 
 public class InMemoryLogRecordExporter : BaseExporter<LogRecord>
 {
-    public List<ExportedLog> ExportedLogs { get; } = [];
+    public List<LogRecord> ExportedLogs { get; } = [];
 
     // LogRecords are pooled and reset after export, so copy the values now.
     public override ExportResult Export(in Batch<LogRecord> batch)
     {
         foreach (var logRecord in batch)
-            ExportedLogs.Add(new ExportedLog(logRecord.LogLevel, logRecord.Exception, logRecord.Body, logRecord.CategoryName));
+            ExportedLogs.Add(logRecord);
         return ExportResult.Success;
     }
 }
