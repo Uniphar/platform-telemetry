@@ -138,13 +138,15 @@ internal static class TelemetryExceptionHandlingRulesFilter
 
 public class InMemoryLogRecordExporter : BaseExporter<LogRecord>
 {
-    public List<LogRecord> ExportedLogs { get; } = [];
+    public List<ExportedLogRecord> ExportedLogs { get; } = [];
 
     // LogRecords are pooled and reset after export, so copy the values now.
     public override ExportResult Export(in Batch<LogRecord> batch)
     {
         foreach (var logRecord in batch)
-            ExportedLogs.Add(logRecord);
+            ExportedLogs.Add(new(logRecord.LogLevel, logRecord.Exception, logRecord.FormattedMessage, logRecord.Body));
         return ExportResult.Success;
     }
 }
+
+public sealed record ExportedLogRecord(LogLevel LogLevel, Exception? Exception, string? FormattedMessage, string? Body);
