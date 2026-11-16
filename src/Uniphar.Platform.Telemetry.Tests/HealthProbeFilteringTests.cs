@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Http;
 using Uniphar.Platform.Telemetry;
 
 [TestClass]
-[TestCategory("Unit")]
 public class HealthProbeFilteringTests
 {
     private static DefaultHttpContext CreateContext(string path, int statusCode)

@@ -6,9 +6,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - .github/workflows/uniphar-platform-telemetry-cd.yaml
-      - src/Uniphar.Platform.Telemetry/**
 
 permissions:
   id-token: write
@@ -23,20 +20,12 @@ jobs:
         working-directory: ./src/Uniphar.Platform.Telemetry
 
     steps:
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.ENTRA_PROD_WORKFORCE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_PLATFORM_SUBSCRIPTION_ID }}
-          enable-AzPSSession: true
-
       - name: Checkout Repo
         uses: actions/checkout@v6
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "10.x"
+          dotnet-version: "11.x"
 
       - name: Update Version in .csproj
         shell: pwsh
@@ -62,18 +51,12 @@ jobs:
       - name: Dotnet Pack
         run: dotnet pack --configuration Release --output ./.nupkgs
 
-      - name: Get NuGet Repository API Key
-        uses: azure/powershell@v2
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
         with:
-          inlineScript: |
-            $nuGetAPIKeySecret = Get-AzKeyVaultSecret -VaultName uni-core-platform-kv -Name nuget-org-repository-api-key
-            $nuGetAPIKey = ConvertFrom-SecureString $nuGetAPIKeySecret.SecretValue -AsPlainText
-
-            echo "NUGET_API_KEY=$nuGetAPIKey" >> $env:GITHUB_ENV
-          azPSVersion: "latest"
-          errorActionPreference: "stop"
-          failOnStandardError: true
+          user: ${{ secrets.UNI_NUGET_USER }}
 
       - name: Dotnet NuGet Push
         working-directory: ./src/Uniphar.Platform.Telemetry
-        run: dotnet nuget push ./.nupkgs/*.nupkg --source 'https://api.nuget.org/v3/index.json' --api-key $NUGET_API_KEY
+        run: dotnet nuget push ./.nupkgs/*.nupkg --source 'https://api.nuget.org/v3/index.json' --api-key ${{steps.login.outputs.NUGET_API_KEY}}

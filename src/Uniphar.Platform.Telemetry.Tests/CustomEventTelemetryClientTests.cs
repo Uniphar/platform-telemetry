@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging.Testing;
 namespace Uniphar.Platform.Telemetry.Tests;
 
 [TestClass]
-[TestCategory("Unit")]
 public class CustomEventTelemetryClientTests
 {
     [TestMethod]
