@@ -8,7 +8,7 @@ Uniphar.Platform.Telemetry is a .NET library for enhanced telemetry, logging, an
 
 - **Custom Event Telemetry Client**: Send custom events to your telemetry backend with structured data.
 - **Ambient Properties Log Enricher**: Automatically enriches log records with ambient properties for better traceability.
-- **Exception to Custom Event Converter**: Convert exceptions into custom telemetry events for improved error tracking.
+- **Non-Alerting Exceptions and Logs**: Mark expected exceptions (or log explicitly with `LogNonAlertingError`/`LogNonAlertingWarning`) so the full log and stack trace stay visible but are tagged `telemetry.non_alerting=true` for exclusion from alerts.
 - **Telemetry Extensions**: Extension methods for easier integration with logging and telemetry frameworks.
 - **Configurable Dependency Filter**: Filter out specific HTTP error codes (401, 403, 409, etc.) from Azure resource dependency telemetry to prevent them from being recorded as failed dependencies in Application Insights.
 
@@ -55,19 +55,19 @@ Use the fluent API to configure exception filters and path exclusions:
 ```csharp
 using Uniphar.Platform.Telemetry;
 
-// Define custom exception handling rules
+// Mark expected exceptions as non-alerting: full log + stack trace are kept, tagged telemetry.non_alerting=true
 var exceptionRules = new[]
 {
-    new ExceptionHandlingRule(
-        logRecord => logRecord.Exception is IOException &&
-                     logRecord.Exception.Message.Contains("being used by another process"),
-        (logRecord, client) => client.TrackEvent("IoLock", new() { ["Exception"] = logRecord.Exception?.Message })
-    ),
-    new ExceptionHandlingRule(
-        logRecord => logRecord.Exception is ArgumentException,
-        (logRecord, client) => client.TrackEvent("ArgumentError", new() { ["Exception"] = logRecord.Exception?.Message })
-    )
+    ExceptionHandlingRule.For<IOException>(
+        e => e.Message.Contains("being used by another process"),
+        new Dictionary<string, object?> { ["Category"] = "Restart" },
+        setToLogLevel: LogLevel.Warning), // Error (default) or Warning
+    ExceptionHandlingRule.For<ArgumentException>()
 };
+
+// Or log directly as non-alerting
+logger.LogNonAlertingError(ex, "Worker restarting", new Dictionary<string, object?> { ["Category"] = "Restart" });
+logger.LogNonAlertingWarning(ex, "Slow restart");
 
 // Define paths to exclude from telemetry (e.g., health checks)
 var pathsToFilterOutStartingWith = new[] { "/health", "/metrics", "/status" };
@@ -102,7 +102,7 @@ Log level filtering should be configured in your application's `appsettings.json
 
 The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you to chain configuration methods:
 
-- **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Configure exception handling rules
+- **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Mark matching exceptions as non-alerting (logs keep the full stack trace and get `telemetry.non_alerting=true`; alerts should exclude it)
 - **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from telemetry
 - **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering
 - **`.WithAppInsightsConnectionString(string)`**: Supply the Application Insights connection string directly, bypassing the default `APPLICATIONINSIGHTS_CONNECTION_STRING` config/environment variable lookup
@@ -136,13 +136,15 @@ builder.RegisterOpenTelemetry("my-application")
 
 ### Configurable HTTP Dependency Error Filtering
 
-The `ConfigurableDependencyTelemetryProcessor` allows you to filter out specific HTTP error codes from Azure resource operations to prevent them from being recorded as failed dependencies in Application Insights. This is useful for scenarios where certain error codes are expected and should not trigger alerts.
+`WithDependencyFilter` lets you filter out specific HTTP error codes from Azure resource operations to prevent them from being recorded as failed dependencies in Application Insights. This is useful for scenarios where certain error codes are expected and should not trigger alerts. Calling `WithDependencyFilter()` without arguments uses `DependencyFilterConfiguration.Default` (409 for Storage and Service Bus).
 
-#### Supported Azure Resource Types
+#### Supported Azure Resource Namespaces
 
-- **Storage** - Azure Storage (Azure Blob, File Share etc.)
-- **ContainerRegistry** - Azure Container Registry
-- **ServiceBus** - Azure Service Bus
+Rules target an Azure resource namespace, see `AzureResourceNamespaces`:
+
+- **Storage** (`Microsoft.Storage`) - Azure Storage (Blob, File Share, Queue, Table)
+- **ContainerRegistry** (`Microsoft.ContainerRegistry`) - Azure Container Registry
+- **ServiceBus** (`Microsoft.ServiceBus`) - Azure Service Bus
 
 #### Configuration Examples
 
@@ -153,13 +155,13 @@ var config = new DependencyFilterConfiguration
     [
         new DependencyFilterRule
         {
-            ResourceType = AzureResourceType.BlobStorage,
-            StatusCodesToFilter = [409]
+            ResourceNamespace = AzureResourceNamespaces.Storage,
+            StatusCodes = [409]
         },
         new DependencyFilterRule
         {
-            ResourceType = AzureResourceType.ContainerRegistry,
-            StatusCodesToFilter = [401]
+            ResourceNamespace = AzureResourceNamespaces.ContainerRegistry,
+            StatusCodes = [401]
         }
     ]
 };
@@ -173,8 +175,8 @@ builder.RegisterOpenTelemetry("my-application")
 
 When a dependency call is made to a supported Azure resource and results in one of the configured HTTP status codes:
 
-1. The processor identifies the Azure resource type based on the activity's display name or URL
-2. It checks if there's a matching filter rule for that resource type
+1. The processor identifies the Azure resource namespace based on the activity's display name or URL
+2. It checks if there's a matching filter rule for that namespace
 3. If the HTTP status code matches a configured code in the rule, the activity is marked as unrecorded
 4. This prevents the failed dependency from appearing in your Application Insights telemetry
 
@@ -189,33 +191,37 @@ This is particularly useful for:
 **Scenario 1: Filter all conflict errors from Azure Storage**
 
 ```csharp
-.WithDependencyFilter(filter => filter
-    .FilterBlobStorage(409)
-    .FilterFileShare(409)
-    .FilterQueueStorage(409)
-    .FilterTableStorage(409)
-)
+.WithDependencyFilter(new DependencyFilterConfiguration
+{
+    Rules = [new() { ResourceNamespace = AzureResourceNamespaces.Storage, StatusCodes = [409] }]
+})
 ```
 
 **Scenario 2: Filter authentication errors from external services**
 
 ```csharp
-.WithDependencyFilter(filter => filter
-    .FilterContainerRegistry(401, 403)
-    .FilterServiceBus(401)
-)
+.WithDependencyFilter(new DependencyFilterConfiguration
+{
+    Rules =
+    [
+        new() { ResourceNamespace = AzureResourceNamespaces.ContainerRegistry, StatusCodes = [401, 403] },
+        new() { ResourceNamespace = AzureResourceNamespaces.ServiceBus, StatusCodes = [401] }
+    ]
+})
 ```
 
 **Scenario 3: Comprehensive filtering for production environments**
 
 ```csharp
-.WithDependencyFilter(filter => filter
-    .FilterBlobStorage(409)
-    .FilterFileShare(409)
-    .FilterContainerRegistry(401, 403, 409)
-    .FilterServiceBus(401, 403)
-    .FilterQueueStorage(409)
-)
+.WithDependencyFilter(new DependencyFilterConfiguration
+{
+    Rules =
+    [
+        new() { ResourceNamespace = AzureResourceNamespaces.Storage, StatusCodes = [409] },
+        new() { ResourceNamespace = AzureResourceNamespaces.ContainerRegistry, StatusCodes = [401, 403, 409] },
+        new() { ResourceNamespace = AzureResourceNamespaces.ServiceBus, StatusCodes = [401, 403] }
+    ]
+})
 ```
 
 ### Using Custom Event Telemetry
@@ -241,7 +247,7 @@ public class MyClass
     {
         // Use WithProperties to set ambient properties
         // All telemetry events within the current async context will have these additional properties (which are removed/disposed of after the using block).
-        using (_telemetry.WithProperties(new() {["UserId"] = "12345", ["TenantId"] = "tenant-abc" }))
+        using (_telemetry.WithProperties(new Dictionary<string, string> { ["UserId"] = "12345", ["TenantId"] = "tenant-abc" }))
         {
             // All telemetry tracked within this scope will include UserId and TenantId
             _telemetry.TrackEvent("ProcessStarted", new() { ["Status"] = "Initiated" });

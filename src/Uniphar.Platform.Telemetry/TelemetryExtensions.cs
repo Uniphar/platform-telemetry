@@ -74,6 +74,8 @@ public static class TelemetryExtensions
         }
 
         /// <summary>
+        ///     Marks matching error logs as non-alerting (full log and stack trace are kept, tagged with
+        ///     <see cref="NonAlertingLogs.MarkerAttribute" /> and optional custom dimensions) so alerts can exclude them.
         /// </summary>
         /// <param name="exceptionHandlingRules">exception handling rules</param>
         public TelemetryBuilder WithExceptionsFilters(IEnumerable<ExceptionHandlingRule> exceptionHandlingRules)

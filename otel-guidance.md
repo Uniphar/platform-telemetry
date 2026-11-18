@@ -77,7 +77,7 @@ telemetry.TrackEvent("FileMoved", new() { { "FileSize", size } });
 
 Custom events use `LogLevel.Critical` on purpose. If your minimum log level is set higher than the level used for Custom Events, events will not be sent.
 
-The library can also convert specific exceptions into custom events. This means the exception does not appear as an error log. Instead it appears as a custom event with a reason field. Configure this with `WithExceptionsFilters`.
+Expected exceptions (for example restarts) can be marked as non-alerting with `WithExceptionsFilters`. The log is kept in full, with exception and stack trace, but carries the attribute `telemetry.non_alerting = true` plus any custom dimensions you define (for example `Category = "Restart"`). A rule exports the log at `SetToLogLevel`, which defaults to Error and can be set to Warning. Exclude `telemetry.non_alerting` in your alert queries. You can also log directly with `logger.LogNonAlertingError(...)` and `logger.LogNonAlertingWarning(...)`.
 
 ---
 

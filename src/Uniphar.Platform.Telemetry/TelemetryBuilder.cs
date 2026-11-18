@@ -154,7 +154,7 @@ public sealed class TelemetryBuilder
             {
                 loggerProviderBuilder
                     .AddProcessor<AmbientPropertiesLogRecordInjector>()
-                    .AddProcessor<ExceptionToCustomEventConverter>();
+                    .AddProcessor<NonAlertingExceptionProcessor>();
             })
             .WithMetrics(metricsBuilder =>
             {
