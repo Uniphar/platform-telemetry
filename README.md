@@ -291,10 +291,18 @@ cd src/Uniphar.Platform.Telemetry.Tests
 dotnet test
 ```
 
+Integration tests (real telemetry sent to Dash0 and queried back) live in `Uniphar.Platform.Telemetry.IntegrationTests`, see its [README](src/Uniphar.Platform.Telemetry.IntegrationTests/README.md). CD runs them before publishing.
+
+### Uniphar.Platform.Telemetry.Testing
+
+A separate NuGet package with a Dash0 query client (`Dash0TelemetryQueryClient`) so your own integration tests can assert that spans and logs, such as non-alerting logs with `telemetry.non_alerting=true`, arrived in Dash0. See its [README](src/Uniphar.Platform.Telemetry.Testing/README.md).
+
 ## Project Structure
 
 - `Uniphar.Platform.Telemetry/` - Main library source code
+- `Uniphar.Platform.Telemetry.Testing/` - Test helpers package (Dash0 query client)
 - `Uniphar.Platform.Telemetry.Tests/` - Unit tests
+- `Uniphar.Platform.Telemetry.IntegrationTests/` - Dash0 integration tests
 
 ## Contributing
 
