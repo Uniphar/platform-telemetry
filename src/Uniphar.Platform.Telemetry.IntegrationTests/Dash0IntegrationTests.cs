@@ -39,13 +39,11 @@ public class Dash0IntegrationTests
                 logger.LogError(new TimeoutException("restarting"), "Filtered by rule {RunId}", runId);
             });
 
-        var count = await WaitForLogsAsync(since,
+        await AssertLogArrivedAsync(since, runId,
             Dash0Filter.Is("RunId", runId),
             Dash0Filter.Is("telemetry.non_alerting", "true"),
             Dash0Filter.Is("Category", "Restart"),
             Dash0Filter.Is("otel.log.severity.range", "ERROR"));
-
-        count.Should().Be(1);
     }
 
     [TestMethod]
@@ -62,12 +60,10 @@ public class Dash0IntegrationTests
                 logger.LogNonAlertingWarning(new InvalidOperationException("expected"), "Expected failure {RunId}", runId);
             });
 
-        var count = await WaitForLogsAsync(since,
+        await AssertLogArrivedAsync(since, runId,
             Dash0Filter.Is("RunId", runId),
             Dash0Filter.Is("telemetry.non_alerting", "true"),
             Dash0Filter.Is("otel.log.severity.range", "WARN"));
-
-        count.Should().Be(1);
     }
 
     [TestMethod]
@@ -108,18 +104,30 @@ public class Dash0IntegrationTests
                 new Dash0Query(since, ServiceName, [Dash0Filter.Is("otel.span.name", "IntegrationEvent"), Dash0Filter.Is("RunId", runId)]), ct),
             1,
             IngestionTimeout);
-
-        count.Should().Be(1);
     }
 
     private static string NewRunId() => Guid.NewGuid().ToString("N");
+
+    // Distinguishes "nothing arrived at all" (export/ingestion problem) from "arrived without the expected attributes" (filter problem).
+    private static async Task AssertLogArrivedAsync(DateTimeOffset since, string runId, params Dash0Filter[] filters)
+    {
+        var matching = await WaitForLogsAsync(since, filters);
+        if (matching >= 1) return;
+
+        var arrivedAtAll = await _client.CountLogsAsync(new Dash0Query(since, ServiceName, [Dash0Filter.Is("RunId", runId)]));
+        var serviceLogs = await _client.CountLogsAsync(new Dash0Query(since, ServiceName));
+
+        Assert.Fail(
+            $"No log matched [{string.Join(", ", filters.Select(f => $"{f.Key} {f.Operator} {f.Value}"))}] within {IngestionTimeout}. " +
+            $"Logs with RunId {runId}: {arrivedAtAll}. Logs from {ServiceName} since the test started: {serviceLogs}. " +
+            (serviceLogs == 0 ? "Nothing reached Dash0: check the OTLP endpoint, token and dataset." : "Telemetry arrived, so an attribute key/value filter does not match."));
+    }
 
     private static Task<int> WaitForLogsAsync(DateTimeOffset since, params Dash0Filter[] filters) =>
         _client.WaitForCountAsync(
             ct => _client.CountLogsAsync(new Dash0Query(since, ServiceName, filters), ct),
             1,
             IngestionTimeout);
-
     // The library reads the standard OTEL_* variables; Dash0 authenticates ingestion with the same token as its API.
     private static void ConfigureOtlpExporter()
     {
