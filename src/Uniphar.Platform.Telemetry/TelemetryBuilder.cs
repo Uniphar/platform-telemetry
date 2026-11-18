@@ -72,7 +72,13 @@ public sealed class TelemetryBuilder
     public void Build()
     {
         if (IsBuilt) throw new InvalidOperationException("Build() can only be called once.");
+
+        ConfigureTelemetry();
         IsBuilt = true;
+    }
+
+    private void ConfigureTelemetry()
+    {
 
         // Suppress any environment-based console logging from OpenTelemetry SDK itself
         Environment.SetEnvironmentVariable("OTEL_LOG_LEVEL", "none");
