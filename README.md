@@ -81,7 +81,7 @@ builder.RegisterOpenTelemetry("my-application")
 
 ### Console Log Suppression
 
-When the `Uniphar.Platform.Telemetry` package itself is built without the `DEBUG` compilation symbol (for example, in a Release build of the library), it automatically removes all default logging providers (Console, Debug, EventSource) via `ClearProviders()`. This behavior is fixed at library build time and applies to consuming applications regardless of whether they are built in Debug or Release. This prevents application logs from writing to stdout/stderr, eliminating duplicate data in ContainerLogsV2/ADX — all telemetry is exported directly to Application Insights via the OpenTelemetry Azure Monitor exporter.
+The `Uniphar.Platform.Telemetry` package removes all default logging providers (Console, Debug, EventSource) via `ClearProviders()` when `Build()` is called, regardless of build configuration. This prevents application logs from writing to stdout/stderr, eliminating duplicate data in ContainerLogsV2/ADX — all telemetry is exported directly via the configured OpenTelemetry exporter(s).
 
 Log level filtering should be configured in your application's `appsettings.json`:
 
@@ -103,7 +103,8 @@ Log level filtering should be configured in your application's `appsettings.json
 The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you to chain configuration methods:
 
 - **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Mark matching exceptions as non-alerting (logs keep the full stack trace and get `telemetry.non_alerting=true`; alerts should exclude it)
-- **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from telemetry
+- **`.WithDiagnosticLogging(bool)`**: Write a `[TrackEvent]` line to stderr for every custom event, to confirm events are emitted
+- **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from successful request telemetry (defaults to `/health`)
 - **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering
 - **`.WithAppInsightsConnectionString(string)`**: Supply the Application Insights connection string directly, bypassing the default `APPLICATIONINSIGHTS_CONNECTION_STRING` config/environment variable lookup
 - **`.Build()`**: Finalize and apply the telemetry configuration (must be called last)
@@ -175,9 +176,9 @@ builder.RegisterOpenTelemetry("my-application")
 
 When a dependency call is made to a supported Azure resource and results in one of the configured HTTP status codes:
 
-1. The processor identifies the Azure resource namespace based on the activity's display name or URL
+1. The processor reads the Azure resource namespace from the activity's `az.namespace` (or `azure.resource_provider.namespace`) tag; activities without it are left alone
 2. It checks if there's a matching filter rule for that namespace
-3. If the HTTP status code matches a configured code in the rule, the activity is marked as unrecorded
+3. If the activity's `error.type` / `http.response.status_code` matches a configured code in the rule, the activity is marked as not recorded
 4. This prevents the failed dependency from appearing in your Application Insights telemetry
 
 This is particularly useful for:
@@ -225,6 +226,11 @@ This is particularly useful for:
 ```
 
 ### Using Custom Event Telemetry
+
+How a custom event is emitted depends on the configured exporters:
+
+- **Application Insights only**: a log record at `LogLevel.Critical` (so it is not dropped by log level filtering). Make sure your logging configuration does not filter out `Critical`.
+- **OTLP configured (alone or with Application Insights)**: both an activity span and a log record at `LogLevel.Information`.
 
 Example usage in a class:
 
