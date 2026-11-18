@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="Uniphar.Platform.Telemetry.IntegrationTests/Uniphar.Platform.Telemetry.IntegrationTests.csproj" />
+  <Project Path="Uniphar.Platform.Telemetry.Testing/Uniphar.Platform.Telemetry.Testing.csproj" />
   <Project Path="Uniphar.Platform.Telemetry.Tests/Uniphar.Platform.Telemetry.Tests.csproj" />
   <Project Path="Uniphar.Platform.Telemetry/Uniphar.Platform.Telemetry.csproj" />
 </Solution>
