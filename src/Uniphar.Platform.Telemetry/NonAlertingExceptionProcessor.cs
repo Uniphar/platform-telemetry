@@ -34,6 +34,7 @@ public sealed class ExceptionHandlingRule
 
     /// <summary>
     ///     Creates a rule matching logs whose exception is a <typeparamref name="TException" />, optionally narrowed by <paramref name="when" />.
+    ///     Only the first matching rule applies, so register the most specific rules first.
     /// </summary>
     public static ExceptionHandlingRule For<TException>(
         Func<TException, bool>? when = null,
@@ -42,7 +43,33 @@ public sealed class ExceptionHandlingRule
         new(
             record => record.Exception is TException exception && (when?.Invoke(exception) ?? true),
             dimensions,
-            setToLogLevel);
+            setToLogLevel)
+        {
+            ExceptionType = typeof(TException),
+            IsUnconditional = when is null
+        };
+
+    // Only set for rules created via For<TException>, used to detect rules that can never match.
+    internal Type? ExceptionType { get; private init; }
+
+    internal bool IsUnconditional { get; private init; }
+
+    /// <summary>
+    ///     Throws when a rule can never be reached because an earlier unconditional rule already covers its exception type.
+    /// </summary>
+    internal static void EnsureReachable(IReadOnlyList<ExceptionHandlingRule> rules)
+    {
+        for (var i = 0; i < rules.Count; i++)
+        {
+            if (rules[i].ExceptionType is not { } type) continue;
+
+            var shadowing = rules.Take(i).FirstOrDefault(r => r.IsUnconditional && r.ExceptionType is not null && r.ExceptionType.IsAssignableFrom(type));
+            if (shadowing is not null)
+                throw new ArgumentException(
+                    $"Rule for {type.Name} is unreachable: an earlier unconditional rule for {shadowing.ExceptionType!.Name} already matches it. Register the most specific rules first.",
+                    nameof(rules));
+        }
+    }
 }
 
 /// <summary>

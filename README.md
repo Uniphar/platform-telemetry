@@ -55,7 +55,9 @@ Use the fluent API to configure exception filters and path exclusions:
 ```csharp
 using Uniphar.Platform.Telemetry;
 
-// Mark expected exceptions as non-alerting: full log + stack trace are kept, tagged telemetry.non_alerting=true
+// Mark expected exceptions as non-alerting: full log + stack trace are kept, tagged telemetry.non_alerting=true.
+// Only the FIRST matching rule applies, so list the most specific rules first (a rule shadowed by an earlier
+// unconditional rule for the same or a base exception type throws when registered).
 var exceptionRules = new[]
 {
     ExceptionHandlingRule.For<IOException>(
@@ -65,8 +67,8 @@ var exceptionRules = new[]
     ExceptionHandlingRule.For<ArgumentException>()
 };
 
-// Or log directly as non-alerting
-logger.LogNonAlertingError(ex, "Worker restarting", new Dictionary<string, object?> { ["Category"] = "Restart" });
+// Or log directly as non-alerting (supports message templates)
+logger.LogNonAlertingError(ex, "Worker {WorkerId} restarting", workerId);
 logger.LogNonAlertingWarning(ex, "Slow restart");
 
 // Define paths to exclude from telemetry (e.g., health checks)
@@ -102,12 +104,12 @@ Log level filtering should be configured in your application's `appsettings.json
 
 The `RegisterOpenTelemetry` method returns a `TelemetryBuilder` that allows you to chain configuration methods:
 
-- **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Mark matching exceptions as non-alerting (logs keep the full stack trace and get `telemetry.non_alerting=true`; alerts should exclude it)
+- **`.WithExceptionsFilters(IEnumerable<ExceptionHandlingRule>)`**: Mark matching exceptions as non-alerting (logs keep the full stack trace and get `telemetry.non_alerting=true`; alerts should exclude it). Can only be called once. Rule dimensions never override attributes already on the log, including ambient properties from `WithProperties`.
 - **`.WithDiagnosticLogging(bool)`**: Write a `[TrackEvent]` line to stderr for every custom event, to confirm events are emitted
 - **`.WithFilterExclusion(IEnumerable<string>)`**: Configure paths to exclude from successful request telemetry (defaults to `/health`)
 - **`.WithDependencyFilter(...)`**: Configure HTTP dependency error filtering
 - **`.WithAppInsightsConnectionString(string)`**: Supply the Application Insights connection string directly, bypassing the default `APPLICATIONINSIGHTS_CONNECTION_STRING` config/environment variable lookup
-- **`.Build()`**: Finalize and apply the telemetry configuration (must be called last)
+- **`.Build()`**: Finalize and apply the telemetry configuration. It must be called last and only once; calling it twice throws, and host startup fails if it was never called
 
 You can chain these methods in any order:
 
@@ -178,7 +180,7 @@ When a dependency call is made to a supported Azure resource and results in one 
 
 1. The processor reads the Azure resource namespace from the activity's `az.namespace` (or `azure.resource_provider.namespace`) tag; activities without it are left alone
 2. It checks if there's a matching filter rule for that namespace
-3. If the activity's `error.type` / `http.response.status_code` matches a configured code in the rule, the activity is marked as not recorded
+3. If the activity's status code matches a configured code in the rule, the activity is marked as not recorded. The status code is taken from `error.type` when it is numeric (e.g. `"409"`), otherwise from `http.response.status_code`
 4. This prevents the failed dependency from appearing in your Application Insights telemetry
 
 This is particularly useful for:
@@ -232,7 +234,7 @@ How a custom event is emitted depends on the configured exporters:
 - **Application Insights only**: a log record at `LogLevel.Critical` (so it is not dropped by log level filtering). Make sure your logging configuration does not filter out `Critical`.
 - **OTLP configured (alone or with Application Insights)**: both an activity span and a log record at `LogLevel.Information`.
 
-Example usage in a class:
+Example usage in a class (properties with a `null` value are not emitted):
 
 ```csharp
 public class MyClass

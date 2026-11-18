@@ -26,6 +26,7 @@ public class NonAlertingExceptionProcessorTests
 
         var loggerFactory = LoggerFactory.Create(builder => builder.AddOpenTelemetry(options =>
         {
+            options.IncludeFormattedMessage = true;
             options.AddProcessor(processor);
             // the in-memory exporter copies pooled LogRecords, so they stay valid after export
             options.AddInMemoryExporter(_exportedLogs);
@@ -61,18 +62,19 @@ public class NonAlertingExceptionProcessorTests
     }
 
     [TestMethod]
-    public void LogNonAlertingError_LogsErrorWithMarkerAndDimensions()
+    public void LogNonAlertingError_LogsErrorWithMarkerAndTemplateArguments()
     {
         var exception = new InvalidOperationException("boom");
 
-        _logger.LogNonAlertingError(exception, "Restarting worker", RestartDimensions);
+        _logger.LogNonAlertingError(exception, "Restarting worker {WorkerId} after {Attempts}", "w-1", 3);
 
         var log = _exportedLogs.Should().ContainSingle().Subject;
         log.LogLevel.Should().Be(LogLevel.Error);
         log.Exception.Should().BeSameAs(exception);
-        log.Body.Should().Be("Restarting worker");
+        log.FormattedMessage.Should().Be("Restarting worker w-1 after 3");
         log.Attributes.Should().Contain(new KeyValuePair<string, object?>(NonAlertingLogs.MarkerAttribute, true));
-        log.Attributes.Should().Contain(new KeyValuePair<string, object?>("Category", "Restart"));
+        log.Attributes.Should().Contain(new KeyValuePair<string, object?>("WorkerId", "w-1"));
+        log.Attributes.Should().Contain(new KeyValuePair<string, object?>("Attempts", 3));
     }
 
     [TestMethod]
@@ -83,6 +85,46 @@ public class NonAlertingExceptionProcessorTests
         var log = _exportedLogs.Should().ContainSingle().Subject;
         log.LogLevel.Should().Be(LogLevel.Warning);
         log.Attributes.Should().Contain(new KeyValuePair<string, object?>(NonAlertingLogs.MarkerAttribute, true));
+    }
+
+    [TestMethod]
+    public void WithExceptionsFilters_RejectsRuleShadowedByEarlierUnconditionalRule()
+    {
+        var builder = Host.CreateApplicationBuilder().RegisterOpenTelemetry("test-app");
+
+        var act = () => builder.WithExceptionsFilters(
+        [
+            ExceptionHandlingRule.For<IOException>(),
+            ExceptionHandlingRule.For<FileNotFoundException>()
+        ]);
+
+        act.Should().Throw<ArgumentException>().WithMessage("*unreachable*");
+    }
+
+    [TestMethod]
+    public void WithExceptionsFilters_AllowsMostSpecificFirstAndConditionalRules()
+    {
+        var builder = Host.CreateApplicationBuilder().RegisterOpenTelemetry("test-app");
+
+        var act = () => builder.WithExceptionsFilters(
+        [
+            ExceptionHandlingRule.For<IOException>(e => e.Message.Contains("locked")),
+            ExceptionHandlingRule.For<IOException>(e => e.Message.Contains("busy")),
+            ExceptionHandlingRule.For<FileNotFoundException>(),
+            ExceptionHandlingRule.For<IOException>()
+        ]);
+
+        act.Should().NotThrow();
+    }
+
+    [TestMethod]
+    public void WithExceptionsFilters_ThrowsWhenCalledTwice()
+    {
+        var builder = Host.CreateApplicationBuilder().RegisterOpenTelemetry("test-app").WithExceptionsFilters([]);
+
+        var act = () => builder.WithExceptionsFilters([]);
+
+        act.Should().Throw<InvalidOperationException>();
     }
 
     [TestMethod]

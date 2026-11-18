@@ -14,9 +14,24 @@ public sealed class TelemetryBuilder
         _appName = appName;
         PathsToFilterOutStartingWith = ["/health"];
         ExceptionHandlingRules = [];
+
+        // Fails host startup when Build() was never called, instead of silently running without telemetry.
+        _builder.Services.AddHostedService(_ => new BuildGuard(this));
+    }
+
+    private sealed class BuildGuard(TelemetryBuilder telemetryBuilder) : IHostedService
+    {
+        public Task StartAsync(CancellationToken cancellationToken) =>
+            telemetryBuilder.IsBuilt
+                ? Task.CompletedTask
+                : throw new InvalidOperationException("RegisterOpenTelemetry(...) was called but Build() was never called; telemetry is not configured.");
+
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     internal bool EnableDiagnosticLogging { get; set; }
+    internal bool ExceptionFiltersConfigured { get; set; }
+    internal bool IsBuilt { get; private set; }
     internal IEnumerable<ExceptionHandlingRule> ExceptionHandlingRules { get; set; }
     internal IEnumerable<string> PathsToFilterOutStartingWith { get; set; }
     internal DependencyFilterConfiguration? DependencyFilterConfiguration { get; set; }
@@ -53,8 +68,12 @@ public sealed class TelemetryBuilder
     /// <summary>
     ///     Builds and configures the OpenTelemetry services.
     /// </summary>
+    /// <exception cref="InvalidOperationException">when called more than once</exception>
     public void Build()
     {
+        if (IsBuilt) throw new InvalidOperationException("Build() can only be called once.");
+        IsBuilt = true;
+
         // Suppress any environment-based console logging from OpenTelemetry SDK itself
         Environment.SetEnvironmentVariable("OTEL_LOG_LEVEL", "none");
 

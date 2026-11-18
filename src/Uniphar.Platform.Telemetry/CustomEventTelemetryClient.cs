@@ -1,4 +1,4 @@
-﻿namespace Uniphar.Platform.Telemetry;
+namespace Uniphar.Platform.Telemetry;
 
 /// <summary>
 ///     Service to track custom events via OpenTelemetry/Azure Monitor or both as per emit mode configuration.
@@ -11,8 +11,8 @@ public interface ICustomEventTelemetryClient
     ///     Track a custom event with optional state properties.
     /// </summary>
     /// <param name="eventName"></param>
-    /// <param name="state"></param>
-    void TrackEvent(string eventName, Dictionary<string, object>? state = null);
+    /// <param name="state">event properties; entries with a <c>null</c> value are not emitted</param>
+    void TrackEvent(string eventName, Dictionary<string, object?>? state = null);
 }
 
 /// <summary>
@@ -58,7 +58,7 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
     }
 
     /// <inheritdoc />
-    public void TrackEvent(string eventName, Dictionary<string, object>? state = null)
+    public void TrackEvent(string eventName, Dictionary<string, object?>? state = null)
     {
         try
         {
@@ -78,9 +78,10 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
         }
     }
 
-    private static KeyValuePair<string, string>[] NormalizeProperties(Dictionary<string, object>? state) =>
+    private static KeyValuePair<string, string>[] NormalizeProperties(Dictionary<string, object?>? state) =>
         (state ?? [])
-        .Select(x => new KeyValuePair<string, string>(x.Key, x.Value.ToString() ?? string.Empty))
+        .Where(x => x.Value is not null)
+        .Select(x => new KeyValuePair<string, string>(x.Key, x.Value!.ToString() ?? string.Empty))
         .ToArray();
 
     private void LogDiagnostics(string eventName)
@@ -119,7 +120,7 @@ public sealed class CustomEventTelemetryClient : ICustomEventTelemetryClient
     private void EmitLogRecord(string eventName, KeyValuePair<string, string>[] properties)
     {
         // Azure Monitor CustomEvent uses structured log placeholders:
-        // "{microsoft.custom_event.name} {key1} {key2} ..." — each becomes a CustomEvent property.
+        // "{microsoft.custom_event.name} {key1} {key2} ..." � each becomes a CustomEvent property.
         // event.name is appended last (typed value) this is for OTEL/dash0
         var custom = properties.Where(x => x.Key is not EventNameAttribute).ToArray();
         var template = string.Join(" ",
