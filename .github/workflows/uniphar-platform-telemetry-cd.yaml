@@ -47,8 +47,32 @@ jobs:
             echo "DASH0_AUTH_TOKEN=$authToken" >> $env:GITHUB_ENV
 
       - name: Run Integration Tests
+        id: integration_tests
+        continue-on-error: true
         working-directory: ./src/Uniphar.Platform.Telemetry.IntegrationTests
         run: dotnet test -s ./runsettings/dev.runsettings -v:q --nologo --logger "GitHubActions;summary.includePassedTests=true"
+
+      - name: Generate coverage report
+        uses: danielpalme/ReportGenerator-GitHub-Action@v5
+        with:
+          reports: "./tests/*/coverage.cobertura.xml"
+          targetdir: "coverage-results-integration-uniphar-platform-telemetry"
+          title: "Integration Tests Coverage"
+          reporttypes: "HtmlInline;MarkdownSummaryGithub"
+
+      - name: Upload test results in case manual view
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-results-integration-uniphar-platform-telemetry
+          path: coverage-results-integration-uniphar-platform-telemetry
+
+      - name: Publish coverage in build summary
+        run: cat coverage-results-integration-uniphar-platform-telemetry/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Fail if tests failed
+        if: steps.integration_tests.outcome == 'failure'
+        run: exit 1
 
   Package_CD:
     needs: Integration_Tests
