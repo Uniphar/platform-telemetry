@@ -54,7 +54,7 @@ public static partial class NonAlertingLogs
         return merged;
     }
 
-    [GeneratedRegex(@"(?<!\{)\{(?:[@$])?(?<name>[^{}:,\s]+)(?<rest>[,:][^{}]*)?\}(?!\})")]
+    [GeneratedRegex(@"\{\{|\}\}|\{(?:[@$])?(?<name>[^{}:,\s]+)(?<rest>[,:][^{}]*)?\}")]
     private static partial Regex PlaceholderRegex();
 
     // Structured state so OpenTelemetry exports each template argument, the marker and the original template as attributes.
@@ -68,6 +68,8 @@ public static partial class NonAlertingLogs
             var index = 0;
             var composite = PlaceholderRegex().Replace(template, match =>
             {
+                if (!match.Groups["name"].Success) return match.Value;
+
                 var argIndex = index++;
                 _items.Add(new(match.Groups["name"].Value, argIndex < args.Length ? args[argIndex] : null));
                 return $"{{{argIndex}{match.Groups["rest"].Value}}}";
