@@ -257,6 +257,43 @@ public class DependencyTelemetryFilterTests
     }
 
     [TestMethod]
+    public void OnEnd_NonNumericErrorType_FallsBackToHttpStatusCode()
+    {
+        var filter = new DependencyTelemetryFilter(new()
+        {
+            Rules = [new() { ResourceNamespace = AzureResourceNamespaces.Storage, StatusCodes = [409] }]
+        });
+        using var activity = new Activity("Azure blob: PUT");
+        activity.SetTag("az.namespace", "Microsoft.Storage");
+        activity.SetTag("error.type", "Azure.RequestFailedException");
+        activity.SetTag("http.response.status_code", 409);
+        activity.ActivityTraceFlags = ActivityTraceFlags.Recorded;
+        activity.Start();
+
+        filter.OnEnd(activity);
+
+        Assert.IsFalse(activity.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded));
+    }
+
+    [TestMethod]
+    public void OnEnd_NumericErrorType_IsUsedAsStatusCode()
+    {
+        var filter = new DependencyTelemetryFilter(new()
+        {
+            Rules = [new() { ResourceNamespace = AzureResourceNamespaces.Storage, StatusCodes = [409] }]
+        });
+        using var activity = new Activity("Azure blob: PUT");
+        activity.SetTag("az.namespace", "Microsoft.Storage");
+        activity.SetTag("error.type", "409");
+        activity.ActivityTraceFlags = ActivityTraceFlags.Recorded;
+        activity.Start();
+
+        filter.OnEnd(activity);
+
+        Assert.IsFalse(activity.ActivityTraceFlags.HasFlag(ActivityTraceFlags.Recorded));
+    }
+
+    [TestMethod]
     public void OnEnd_UnknownResourceType_DoesNotFilter()
     {
         // Arrange

@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Uniphar.Platform.Telemetry\Uniphar.Platform.Telemetry.csproj" />
+    <ProjectReference Include="..\Uniphar.Platform.Telemetry.Testing\Uniphar.Platform.Telemetry.Testing.csproj" />
   </ItemGroup>
   <PropertyGroup>
     <RunSettingsFilePath>$(MSBuildProjectDirectory)\runsettings\local.runsettings</RunSettingsFilePath>

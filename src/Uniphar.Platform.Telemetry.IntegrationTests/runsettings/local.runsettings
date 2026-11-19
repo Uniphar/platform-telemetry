@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DASH0_AUTH_TOKEN is a secret: set it in your own environment (CI fetches it from Key Vault). -->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>json,cobertura</Format>
+          <ExcludeByFile>**/Migrations/*.cs,**/Connected Services/**/*.cs,</ExcludeByFile>
+          <Exclude>[coverlet.*.tests?]*,[*]Coverlet.Core*</Exclude>
+          <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+  <RunConfiguration>
+    <EnvironmentVariables>
+      <DASH0_API_URL>https://api.eu-west-1.aws.dash0.com</DASH0_API_URL>
+      <DASH0_OTLP_ENDPOINT>https://ingress.eu-west-1.aws.dash0.com:4317</DASH0_OTLP_ENDPOINT>
+      <DASH0_DATASET>platform-dev</DASH0_DATASET>
+    </EnvironmentVariables>
+    <ResultsDirectory>../../../tests</ResultsDirectory>
+  </RunConfiguration>
+</RunSettings>

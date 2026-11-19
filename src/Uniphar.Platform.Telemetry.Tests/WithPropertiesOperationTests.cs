@@ -8,6 +8,18 @@ public class WithPropertiesOperationTests
     private const string Source = "Uniphar.Platform.Telemetry.Operations";
 
     [TestMethod]
+    public async Task WithProperties_DisposedFromAnotherExecutionContext_StopsInjectingProperties()
+    {
+        var client = new CustomEventTelemetryClient(emitMode: CustomEventEmitMode.ActivitySpan);
+        var scope = client.WithProperties([new("Any", "value")], "op");
+
+        // dispose in a different execution context, where the AsyncLocal list is not the one holding the scope
+        await Task.Run(scope.Dispose);
+
+        AmbientTelemetryProperties.AmbientProperties.Should().BeEmpty();
+    }
+
+    [TestMethod]
     public void WithProperties_WithoutCurrentActivity_ShouldStartOperationSharedByEventsAndEndItOnDispose()
     {
         var exported = new List<Activity>();

@@ -75,9 +75,9 @@ Custom events appear in the `customEvents` table in Application Insights. Use `I
 telemetry.TrackEvent("FileMoved", new() { { "FileSize", size } });
 ```
 
-Custom events use `LogLevel.Critical` on purpose. If your minimum log level is set higher than the level used for Custom Events, events will not be sent.
+When Application Insights is the only exporter, custom events are emitted as `LogLevel.Critical` log records on purpose. If your minimum log level is set higher than that, events will not be sent. When OTLP is configured, events are emitted as both an activity span and an `Information` log record.
 
-The library can also convert specific exceptions into custom events. This means the exception does not appear as an error log. Instead it appears as a custom event with a reason field. Configure this with `WithExceptionsFilters`.
+Expected exceptions (for example restarts) can be marked as non-alerting with `WithExceptionsFilters`. The log is kept in full, with exception and stack trace, but carries the attribute `telemetry.non_alerting = true` plus any custom dimensions you define (for example `Category = "Restart"`). A rule exports the log at `SetToLogLevel`, which defaults to Error and can be set to Warning. Exclude `telemetry.non_alerting` in your alert queries. You can also log directly with `logger.LogNonAlertingError(ex, "template {Arg}", arg)` and `logger.LogNonAlertingWarning(...)`. Only the first matching rule applies, so list the most specific rules first; `WithExceptionsFilters` throws if a rule is shadowed by an earlier unconditional rule, and can only be called once.
 
 ---
 
@@ -122,7 +122,7 @@ Check the NuGet packages in the project. If `OpenTelemetry.Instrumentation.AspNe
 ### Custom events are missing
 
 1. Set `WithDiagnosticLogging(true)` when calling `RegisterOpenTelemetry`. This writes `[TrackEvent]` lines to stderr. Check the pod logs for these lines to confirm events are being emitted.
-2. Check that nothing is filtering out `LogLevel.Critical` logs in your logging configuration.
+2. Check that nothing is filtering out the custom event log level in your logging configuration (`LogLevel.Critical` with Application Insights only, `Information` when OTLP is configured).
 
 ### Metrics are missing but traces look fine
 

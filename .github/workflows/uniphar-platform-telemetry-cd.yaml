@@ -13,11 +13,73 @@ permissions:
   pull-requests: read
 
 jobs:
+  Integration_Tests:
+    name: Integration tests (platform-dev)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.x
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.ENTRA_PROD_WORKFORCE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_PLATFORM_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      # The Key Vault with the Dash0 secrets lives in the platform subscription we logged in to
+      - name: Fetch dash0 secrets from key vault
+        uses: azure/powershell@v3
+        with:
+          azPSVersion: "latest"
+          errorActionPreference: "stop"
+          failOnStandardError: true
+          inlineScript: |
+            $authTokenSecret = Get-AzKeyVaultSecret -VaultName uni-core-platform-kv -Name 'dash0-platform-authorization-secret-dev'
+            $authToken = ConvertFrom-SecureString $authTokenSecret.SecretValue -AsPlainText
+
+            Write-Output "::add-mask::$authToken"
+            echo "DASH0_AUTH_TOKEN=$authToken" >> $env:GITHUB_ENV
+
+      - name: Run Integration Tests
+        id: integration_tests
+        continue-on-error: true
+        working-directory: ./src/Uniphar.Platform.Telemetry.IntegrationTests
+        run: dotnet test -s ./runsettings/dev.runsettings -v:q --nologo --logger "GitHubActions;summary.includePassedTests=true"
+
+      - name: Generate coverage report
+        uses: danielpalme/ReportGenerator-GitHub-Action@v5
+        with:
+          reports: "./tests/*/coverage.cobertura.xml"
+          targetdir: "coverage-results-integration-uniphar-platform-telemetry"
+          title: "Integration Tests Coverage"
+          reporttypes: "HtmlInline;MarkdownSummaryGithub"
+
+      - name: Upload test results in case manual view
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-results-integration-uniphar-platform-telemetry
+          path: coverage-results-integration-uniphar-platform-telemetry
+
+      - name: Publish coverage in build summary
+        run: cat coverage-results-integration-uniphar-platform-telemetry/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Fail if tests failed
+        if: steps.integration_tests.outcome == 'failure'
+        run: exit 1
+
   Package_CD:
+    needs: Integration_Tests
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./src/Uniphar.Platform.Telemetry
+        working-directory: ./src
 
     steps:
       - name: Checkout Repo
@@ -25,31 +87,35 @@ jobs:
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "11.x"
+          dotnet-version: 11.x
 
       - name: Update Version in .csproj
         shell: pwsh
         run: |
-          $csprojPath = "Uniphar.Platform.Telemetry.csproj"
           $runNumber = "${{github.run_number}}"
-          $content = Get-Content $csprojPath -Raw
 
-          # Match and extract current version
-          if ($content -match '<Version>(.*?)<\/Version>') {
-              $currentVersion = $Matches[1]
-              $newVersion = "$currentVersion.$runNumber"
-              $content = $content -replace '<Version>(.*?)<\/Version>', "<Version>$newVersion</Version>"
-              Set-Content $csprojPath $content
-              Write-Output "Updated version to $newVersion in $csprojPath"
-          } else {
-              Write-Error "Could not find a <Version> tag in $csprojPath"
+          foreach ($csprojPath in "Uniphar.Platform.Telemetry/Uniphar.Platform.Telemetry.csproj", "Uniphar.Platform.Telemetry.Testing/Uniphar.Platform.Telemetry.Testing.csproj") {
+              $content = Get-Content $csprojPath -Raw
+
+              # Match and extract current version
+              if ($content -match '<Version>(.*?)<\/Version>') {
+                  $currentVersion = $Matches[1]
+                  $newVersion = "$currentVersion.$runNumber"
+                  $content = $content -replace '<Version>(.*?)<\/Version>', "<Version>$newVersion</Version>"
+                  Set-Content $csprojPath $content
+                  Write-Output "Updated version to $newVersion in $csprojPath"
+              } else {
+                  Write-Error "Could not find a <Version> tag in $csprojPath"
+              }
           }
 
       - name: Restore Dependencies
-        run: dotnet restore --no-cache --force
+        run: dotnet restore Uniphar.Platform.Telemetry/Uniphar.Platform.Telemetry.csproj --no-cache --force; dotnet restore Uniphar.Platform.Telemetry.Testing/Uniphar.Platform.Telemetry.Testing.csproj --no-cache --force
 
       - name: Dotnet Pack
-        run: dotnet pack --configuration Release --output ./.nupkgs
+        run: |
+          dotnet pack Uniphar.Platform.Telemetry/Uniphar.Platform.Telemetry.csproj --configuration Release --output ./.nupkgs
+          dotnet pack Uniphar.Platform.Telemetry.Testing/Uniphar.Platform.Telemetry.Testing.csproj --configuration Release --output ./.nupkgs
 
       - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1
@@ -58,5 +124,4 @@ jobs:
           user: ${{ secrets.UNI_NUGET_USER }}
 
       - name: Dotnet NuGet Push
-        working-directory: ./src/Uniphar.Platform.Telemetry
         run: dotnet nuget push ./.nupkgs/*.nupkg --source 'https://api.nuget.org/v3/index.json' --api-key ${{steps.login.outputs.NUGET_API_KEY}}

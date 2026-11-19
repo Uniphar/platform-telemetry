@@ -31,15 +31,18 @@ public sealed class DependencyTelemetryFilter : BaseProcessor<Activity>
         var applicableRules = _configuration.Rules
             .Where(rule => rule.ResourceNamespace.Equals(resourceNamespace, StringComparison.OrdinalIgnoreCase));
         
-        var status = activity.GetTagItem("error.type") ?? activity.GetTagItem("http.response.status_code");
-        if (status != null && int.TryParse(status.ToString(), out var statusCode))
-        {
-            if (applicableRules.Any(r => r.StatusCodes.Contains(statusCode)))
-            {
-                activity.ActivityTraceFlags &= ~ActivityTraceFlags.Recorded;
-            }
-        }
+        if (TryGetStatusCode(activity, out var statusCode) &&
+            applicableRules.Any(r => r.StatusCodes.Contains(statusCode)))
+            activity.ActivityTraceFlags &= ~ActivityTraceFlags.Recorded;
 
         base.OnEnd(activity);
+    }
+
+    // error.type is only a status code for HTTP failures (e.g. "409"); otherwise it is an exception name, so fall back to the HTTP status tag.
+    private static bool TryGetStatusCode(Activity activity, out int statusCode)
+    {
+        if (int.TryParse(activity.GetTagItem("error.type")?.ToString(), out statusCode)) return true;
+
+        return int.TryParse(activity.GetTagItem("http.response.status_code")?.ToString(), out statusCode);
     }
 }
