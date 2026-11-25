@@ -110,12 +110,10 @@ jobs:
           }
 
       - name: Restore Dependencies
-        run: dotnet restore Uniphar.Platform.Telemetry/Uniphar.Platform.Telemetry.csproj --no-cache --force; dotnet restore Uniphar.Platform.Telemetry.Testing/Uniphar.Platform.Telemetry.Testing.csproj --no-cache --force
+        run: dotnet restore --no-cache --force
 
       - name: Dotnet Pack
-        run: |
-          dotnet pack Uniphar.Platform.Telemetry/Uniphar.Platform.Telemetry.csproj --configuration Release --output ./.nupkgs
-          dotnet pack Uniphar.Platform.Telemetry.Testing/Uniphar.Platform.Telemetry.Testing.csproj --configuration Release --output ./.nupkgs
+        run: dotnet pack --no-restore --configuration Release --output ./.nupkgs
 
       - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1
