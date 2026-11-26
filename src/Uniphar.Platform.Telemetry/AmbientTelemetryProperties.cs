@@ -17,7 +17,8 @@ public sealed class AmbientTelemetryProperties : IDisposable
 
     internal static ImmutableList<AmbientTelemetryProperties> AmbientProperties
     {
-        get => AmbientPropertiesAsyncLocal.Value ?? ImmutableList<AmbientTelemetryProperties>.Empty;
+        // Scopes disposed from another execution context only flag themselves, so they are skipped here.
+        get => (AmbientPropertiesAsyncLocal.Value ?? ImmutableList<AmbientTelemetryProperties>.Empty).RemoveAll(x => x._disposed);
         private set => AmbientPropertiesAsyncLocal.Value = value;
     }
 
@@ -25,9 +26,14 @@ public sealed class AmbientTelemetryProperties : IDisposable
 
     internal Activity? OperationActivity { get; set; }
 
+    private volatile bool _disposed;
+
     /// <inheritdoc />
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+
         AmbientProperties = AmbientProperties.Remove(this);
         OperationActivity?.Dispose();
     }

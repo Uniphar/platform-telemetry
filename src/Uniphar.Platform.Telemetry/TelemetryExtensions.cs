@@ -74,11 +74,24 @@ public static class TelemetryExtensions
         }
 
         /// <summary>
+        ///     Marks matching error logs as non-alerting (full log and stack trace are kept, tagged with
+        ///     <see cref="NonAlertingLogs.MarkerAttribute" /> and optional custom dimensions) so alerts can exclude them.
+        ///     Only the first matching rule applies, so list the most specific rules first. May only be called once.
         /// </summary>
         /// <param name="exceptionHandlingRules">exception handling rules</param>
+        /// <exception cref="InvalidOperationException">when called more than once</exception>
+        /// <exception cref="ArgumentException">when a rule can never be reached because an earlier rule already covers it</exception>
         public TelemetryBuilder WithExceptionsFilters(IEnumerable<ExceptionHandlingRule> exceptionHandlingRules)
         {
-            telemetryBuilder.ExceptionHandlingRules = exceptionHandlingRules;
+            ArgumentNullException.ThrowIfNull(exceptionHandlingRules);
+            if (telemetryBuilder.ExceptionFiltersConfigured)
+                throw new InvalidOperationException("WithExceptionsFilters can only be called once; pass all rules in a single call.");
+
+            var rules = exceptionHandlingRules.ToList();
+            ExceptionHandlingRule.EnsureReachable(rules);
+
+            telemetryBuilder.ExceptionHandlingRules = rules;
+            telemetryBuilder.ExceptionFiltersConfigured = true;
             return telemetryBuilder;
         }
 

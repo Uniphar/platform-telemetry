@@ -19,7 +19,7 @@ public class CustomEventTelemetryClientTests
         var sut = new CustomEventTelemetryClient(emitMode: CustomEventEmitMode.ActivitySpan);
 
         // Act
-        sut.TrackEvent("MyCustomEvent", new Dictionary<string, object> { ["reason"] = "error" });
+        sut.TrackEvent("MyCustomEvent", new Dictionary<string, object?> { ["reason"] = "error" });
 
         // Force flush to ensure spans are exported
         tracerProvider.ForceFlush();
@@ -42,13 +42,29 @@ public class CustomEventTelemetryClientTests
             logLevel: LogLevel.Information);
 
         // Act
-        sut.TrackEvent("OrderCreated", new Dictionary<string, object> { ["orderId"] = "123" });
+        sut.TrackEvent("OrderCreated", new Dictionary<string, object?> { ["orderId"] = "123" });
 
         // Assert
         var logEntry = fakeLogger.LatestRecord;
         logEntry.Level.Should().Be(LogLevel.Information);
         logEntry.Message.Should().Contain("OrderCreated");
         logEntry.StructuredState.Should().Contain(new KeyValuePair<string, string?>("event.name", "OrderCreated"));
+    }
+
+    [TestMethod]
+    public void TrackEvent_NullPropertyValue_IsNotEmitted()
+    {
+        var fakeLogger = new FakeLogger<CustomEventTelemetryClient>();
+        var sut = new CustomEventTelemetryClient(
+            emitMode: CustomEventEmitMode.LogRecord,
+            logger: fakeLogger,
+            logLevel: LogLevel.Information);
+
+        sut.TrackEvent("OrderCreated", new Dictionary<string, object?> { ["orderId"] = "123", ["missing"] = null });
+
+        var state = fakeLogger.LatestRecord.StructuredState!;
+        state.Should().Contain(new KeyValuePair<string, string?>("orderId", "123"));
+        state.Select(s => s.Key).Should().NotContain("missing");
     }
 
     [TestMethod]
@@ -61,7 +77,7 @@ public class CustomEventTelemetryClientTests
             logger: fakeLogger);
 
         // Act
-        sut.TrackEvent("MarkedEvent", new Dictionary<string, object> { ["orderId"] = "123" });
+        sut.TrackEvent("MarkedEvent", new Dictionary<string, object?> { ["orderId"] = "123" });
 
         // Assert
         var state = fakeLogger.LatestRecord.StructuredState!;
@@ -85,7 +101,7 @@ public class CustomEventTelemetryClientTests
             logger: fakeLogger);
 
         // Act
-        sut.TrackEvent("OnlyLog", new Dictionary<string, object> { ["key"] = "val" });
+        sut.TrackEvent("OnlyLog", new Dictionary<string, object?> { ["key"] = "val" });
         tracerProvider.ForceFlush();
 
         // Assert
@@ -109,7 +125,7 @@ public class CustomEventTelemetryClientTests
             logger: fakeLogger);
 
         // Act
-        sut.TrackEvent("DualEvent", new Dictionary<string, object> { ["source"] = "test" });
+        sut.TrackEvent("DualEvent", new Dictionary<string, object?> { ["source"] = "test" });
         tracerProvider.ForceFlush();
 
         // Assert - activity span emitted
